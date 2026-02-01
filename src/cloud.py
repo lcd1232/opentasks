@@ -11,7 +11,7 @@ def _base64_encode(data: str) -> str:
     return base64.b64encode(data.encode()).decode("utf-8")
 
 
-def get_client_info() -> str:
+def get_client_info(auth_mode: bool) -> str:
     data: dict = {
         "dm": "Mac15,6",
         "lr": "US",
@@ -23,13 +23,14 @@ def get_client_info() -> str:
         "ov": "15.7.2",
         "pl": "en-US",
         "ul": "en-Latn-US",
-        "wn": "ThingsAccount",
-        "wv": "0.1",
     }
+    if auth_mode:
+        data["wn"] = "ThingsAccount"
+        data["wv"] = "0.1"
     return _base64_encode(json.dumps(data))
 
 
-class ThingsAuth(httpx.Auth):
+class ThingsLoginAuth(httpx.Auth):
     def __init__(self, email: str, password: str):
         self.email = email
         self.password = password
@@ -48,6 +49,15 @@ class ThingsAuth(httpx.Auth):
         yield request
 
 
+class ThingsPasswordAuth(httpx.Auth):
+    def __init__(self, password: str):
+        self.password = password
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"Password {self.password}"
+        yield request
+
+
 @dataclass_json
 @dataclass
 class LoginResponse:
@@ -57,17 +67,48 @@ class LoginResponse:
     )
 
 
-class CloudAPI:
-    def __init__(self):
-        self.client = httpx.Client(headers={"things-client-info": get_client_info()})
+@dataclass_json
+@dataclass
+class AccountInfoResponse:
+    sla_version_accepted: str = field(
+        metadata=config(field_name="SLA-version-accepted")
+    )
+    email: str = field(metadata=config(field_name="email"))
+    history_key: str = field(metadata=config(field_name="history-key"))
+    issues: list = field(metadata=config(field_name="issues"))
+    maildrop_email: str = field(metadata=config(field_name="maildrop-email"))
+    status: str = field(metadata=config(field_name="status"))
 
-    def login(self, email: str, password: str) -> bool:
-        r: httpx.Response = self.client.post(
+
+class CloudAPI:
+    def __init__(self, email: str, password: str):
+        self.client = httpx.Client(
+            headers={
+                "things-client-info": get_client_info(auth_mode=False),
+                "User-Agent": "ThingsMac/32209501",
+            }
+        )
+        self.email = email
+        self.password = password
+
+    def login(self) -> LoginResponse:
+        r: httpx.Response = self._do_api_request(
+            "POST",
             "https://cloud.culturedcode.com/api/account/session/getT3SharedSession",
-            auth=ThingsAuth(email, password),
+            auth=ThingsLoginAuth(self.email, self.password),
+            headers={"things-client-info": get_client_info(auth_mode=True)},
         )
         resp: LoginResponse = LoginResponse.from_json(r.text)
-        print(resp)
+        return resp
+
+    def account_info(self) -> AccountInfoResponse:
+        r: httpx.Response = self._do_api_request(
+            "GET",
+            f"https://cloud.culturedcode.com/version/1/account/{self.email}",
+            auth=ThingsPasswordAuth(self.password),
+        )
+        resp: AccountInfoResponse = AccountInfoResponse.from_json(r.text)
+        return resp
 
     def _do_api_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         r: httpx.Response = self.client.request(method, url, **kwargs)
@@ -78,5 +119,7 @@ class CloudAPI:
 if __name__ == "__main__":
     env = environ.Env()
     environ.Env.read_env()
-    api = CloudAPI()
-    api.login(env.str("THINGS_EMAIL"), env.str("THINGS_PASSWORD"))
+    api = CloudAPI(env.str("THINGS_EMAIL"), env.str("THINGS_PASSWORD"))
+    api.login()
+    info = api.account_info()
+    print(info)
