@@ -69,6 +69,31 @@ class LoginResponse:
 
 @dataclass_json
 @dataclass
+class HistoryObject:
+    object_type: str = field(metadata=config(field_name="t"))
+    e: str = field(metadata=config(field_name="e"))
+    p: dict = field(metadata=config(field_name="p"))
+
+
+@dataclass_json
+@dataclass
+class HistoryResponse:
+    current_item_index: int = field(metadata=config(field_name="current-item-index"))
+    end_total_content_size: int = field(
+        metadata=config(field_name="end-total-content-size")
+    )
+    latest_total_content_size: int = field(
+        metadata=config(field_name="latest-total-content-size")
+    )
+    schema: int = field(metadata=config(field_name="schema"))
+    start_total_content_size: int = field(
+        metadata=config(field_name="start-total-content-size")
+    )
+    items: list[dict[str, HistoryObject]] = field(metadata=config(field_name="items"))
+
+
+@dataclass_json
+@dataclass
 class AccountInfoResponse:
     sla_version_accepted: str = field(
         metadata=config(field_name="SLA-version-accepted")
@@ -86,7 +111,8 @@ class CloudAPI:
             headers={
                 "things-client-info": get_client_info(auth_mode=False),
                 "User-Agent": "ThingsMac/32209501",
-            }
+            },
+            verify=False,
         )
         self.email = email
         self.password = password
@@ -110,6 +136,15 @@ class CloudAPI:
         resp: AccountInfoResponse = AccountInfoResponse.from_json(r.text)
         return resp
 
+    def history(self, history_key: str, index: int) -> HistoryResponse:
+        r: httpx.Response = self._do_api_request(
+            "GET",
+            f"https://cloud.culturedcode.com/version/1/history/{history_key}/items",
+            params={"start-index": index},
+        )
+        resp: HistoryResponse = HistoryResponse.from_json(r.text)
+        return resp
+
     def _do_api_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         r: httpx.Response = self.client.request(method, url, **kwargs)
         r.raise_for_status()
@@ -122,4 +157,5 @@ if __name__ == "__main__":
     api = CloudAPI(env.str("THINGS_EMAIL"), env.str("THINGS_PASSWORD"))
     api.login()
     info = api.account_info()
-    print(info)
+    history = api.history(info.history_key, 6069)
+    print(history)
