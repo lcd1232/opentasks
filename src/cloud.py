@@ -9,10 +9,11 @@ import environ
 import httpx
 from dataclasses_json import config, dataclass_json
 
-from src.parser import StateBuilder
+from models import AccountInfoResponse, HistoryResponse
+from parser import StateBuilder
 
 if TYPE_CHECKING:
-    from src.parser import State
+    from parser import State
 
 
 def _base64_encode(data: str) -> str:
@@ -83,44 +84,6 @@ EVENT_TYPES: set[str] = {
     "Settings5",
     "Tombstone2",
 }
-
-
-@dataclass_json
-@dataclass
-class HistoryObject:
-    t: int = field(metadata=config(field_name="t"))
-    e: str = field(metadata=config(field_name="e"))
-    p: dict = field(metadata=config(field_name="p"))
-
-
-@dataclass_json
-@dataclass
-class HistoryResponse:
-    current_item_index: int = field(metadata=config(field_name="current-item-index"))
-    end_total_content_size: int = field(
-        metadata=config(field_name="end-total-content-size")
-    )
-    latest_total_content_size: int = field(
-        metadata=config(field_name="latest-total-content-size")
-    )
-    schema: int = field(metadata=config(field_name="schema"))
-    start_total_content_size: int = field(
-        metadata=config(field_name="start-total-content-size")
-    )
-    items: list[dict[str, HistoryObject]] = field(metadata=config(field_name="items"))
-
-
-@dataclass_json
-@dataclass
-class AccountInfoResponse:
-    sla_version_accepted: str = field(
-        metadata=config(field_name="SLA-version-accepted")
-    )
-    email: str = field(metadata=config(field_name="email"))
-    history_key: str = field(metadata=config(field_name="history-key"))
-    issues: list = field(metadata=config(field_name="issues"))
-    maildrop_email: str | None = field(metadata=config(field_name="maildrop-email"))
-    status: str = field(metadata=config(field_name="status"))
 
 
 class CloudAPI:
@@ -202,4 +165,5 @@ if __name__ == "__main__":
     api = CloudAPI(env.str("THINGS_EMAIL"), env.str("THINGS_PASSWORD"))
     state: State = api.full_state()
     for uid, task in state.tasks.items():
-        print(f"{uid} | {task.title}")
+        if task.is_open and task.is_project:
+            print(f"{uid} | {task.title}")
