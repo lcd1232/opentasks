@@ -9,6 +9,8 @@ import environ
 import httpx
 from dataclasses_json import config, dataclass_json
 
+from src.parser import StateBuilder
+
 if TYPE_CHECKING:
     from src.parser import State
 
@@ -184,8 +186,6 @@ class CloudAPI:
         return all_items
 
     def full_state(self) -> State:
-        from src.parser import State, StateBuilder
-
         builder = StateBuilder()
         builder.apply_all(self.full_history())
         return builder.build()
@@ -200,7 +200,6 @@ if __name__ == "__main__":
     env = environ.Env()
     environ.Env.read_env()
     api = CloudAPI(env.str("THINGS_EMAIL"), env.str("THINGS_PASSWORD"))
-    api.login()
-    info = api.account_info()
-    histories = api.full_history()
-    print(f"Total objects: {[len(history.items) for history in histories]}")
+    state: State = api.full_state()
+    for uid, task in state.tasks.items():
+        print(f"{uid} | {task.title}")
