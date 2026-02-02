@@ -122,7 +122,6 @@ class CloudAPI:
                 "things-client-info": get_client_info(auth_mode=False),
                 "User-Agent": "ThingsMac/32209501",
             },
-            verify=False,
             timeout=30.0,
         )
         self.email = email
@@ -149,10 +148,10 @@ class CloudAPI:
         resp: AccountInfoResponse = AccountInfoResponse.from_json(r.text)
         return resp
 
-    def history(self, history_key: str, index: int) -> HistoryResponse:
+    def history(self, index: int) -> HistoryResponse:
         r: httpx.Response = self._do_api_request(
             "GET",
-            f"https://cloud.culturedcode.com/version/1/history/{history_key}/items",
+            f"https://cloud.culturedcode.com/version/1/history/{self.history_key}/items",
             params={"start-index": index},
         )
         with open(f"history_{index}.json", "w", encoding="utf-8") as f:
@@ -160,15 +159,18 @@ class CloudAPI:
         resp: HistoryResponse = HistoryResponse.from_json(r.text)
         return resp
 
-    def full_history(self) -> list[HistoryResponse]:
-        all_items: list[HistoryResponse] = []
-        index = 0
+    @property
+    def history_key(self) -> str:
         if self._history_key is None:
             info = self.account_info()
             self._history_key = info.history_key
-        history_key = self._history_key
+        return self._history_key
+
+    def full_history(self) -> list[HistoryResponse]:
+        all_items: list[HistoryResponse] = []
+        index = 0
         while True:
-            resp = self.history(history_key, index)
+            resp = self.history(index)
             all_items.append(resp)
             if resp.end_total_content_size == resp.latest_total_content_size:
                 break
