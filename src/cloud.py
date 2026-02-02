@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import base64
 import json
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import environ
 import httpx
 from dataclasses_json import config, dataclass_json
+
+if TYPE_CHECKING:
+    from src.parser import State
 
 
 def _base64_encode(data: str) -> str:
@@ -80,7 +86,7 @@ EVENT_TYPES: set[str] = {
 @dataclass_json
 @dataclass
 class HistoryObject:
-    t: str = field(metadata=config(field_name="t"))  # object state: 0
+    t: int = field(metadata=config(field_name="t"))
     e: str = field(metadata=config(field_name="e"))
     p: dict = field(metadata=config(field_name="p"))
 
@@ -176,6 +182,13 @@ class CloudAPI:
                 break
             index += len(resp.items)
         return all_items
+
+    def full_state(self) -> State:
+        from src.parser import State, StateBuilder
+
+        builder = StateBuilder()
+        builder.apply_all(self.full_history())
+        return builder.build()
 
     def _do_api_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         r: httpx.Response = self.client.request(method, url, **kwargs)

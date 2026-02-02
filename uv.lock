@@ -122,6 +122,7 @@ dependencies = [
     { name = "django-environ" },
     { name = "httpx" },
     { name = "pyside6" },
+    { name = "things-py" },
 ]
 
 [package.metadata]
@@ -130,6 +131,7 @@ requires-dist = [
     { name = "django-environ", specifier = "==0.12.0" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "pyside6", specifier = "==6.10.1" },
+    { name = "things-py", specifier = ">=0.0.15" },
 ]
 
 [[package]]
@@ -199,6 +201,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/16/b8/939c24ebd662b0aa5c945443d0973145b3fb7079f0196274ef7bb4b98f73/shiboken6-6.10.1-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:c095b00f4d6bf578c0b2464bb4e264b351a99345374478570f69e2e679a2a1d0", size = 268691, upload-time = "2025-11-20T10:08:55.639Z" },
     { url = "https://files.pythonhosted.org/packages/cf/a6/8c65ee0fa5e172ebcca03246b1bc3bd96cdaf1d60537316648536b7072a5/shiboken6-6.10.1-cp39-abi3-win_amd64.whl", hash = "sha256:c1601d3cda1fa32779b141663873741b54e797cb0328458d7466281f117b0a4e", size = 1234704, upload-time = "2025-11-20T10:08:57.417Z" },
     { url = "https://files.pythonhosted.org/packages/7b/6a/c0fea2f2ac7d9d96618c98156500683a4d1f93fea0e8c5a2bc39913d7ef1/shiboken6-6.10.1-cp39-abi3-win_arm64.whl", hash = "sha256:5cf800917008587b551005a45add2d485cca66f5f7ecd5b320e9954e40448cc9", size = 1795567, upload-time = "2025-11-20T10:08:59.184Z" },
+]
+
+[[package]]
+name = "things-py"
+version = "0.0.15"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/09/bf/dbba75d9a4e38de0d91dff8b1d0aacd754df4080d7c17eae3a1640a4d17f/things.py-0.0.15.tar.gz", hash = "sha256:95ee8602083cf8b9fde59f64486fa6f3d13b1f84bd565c60dd77599c07e7ea16", size = 27476, upload-time = "2023-05-22T19:42:19.238Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b4/a3/97c7e8a2b9ab527cef9c31b74d88d730e4ba539bf6e9743522f9b7584122/things.py-0.0.15-py3-none-any.whl", hash = "sha256:5c75e7f35eb6e9558fa937bfa0b7563f5dc3b726adade836131e572a15c47a0d", size = 26671, upload-time = "2023-05-22T19:42:17.516Z" },
 ]
 
 [[package]]
