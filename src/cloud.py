@@ -67,10 +67,20 @@ class LoginResponse:
     )
 
 
+EVENT_TYPES: set[str] = {
+    "ChecklistItem3",
+    "Area3",
+    "Task6",
+    "Tag4",
+    "Settings5",
+    "Tombstone2",
+}
+
+
 @dataclass_json
 @dataclass
 class HistoryObject:
-    object_type: str = field(metadata=config(field_name="t"))
+    t: str = field(metadata=config(field_name="t"))  # object state: 0
     e: str = field(metadata=config(field_name="e"))
     p: dict = field(metadata=config(field_name="p"))
 
@@ -101,7 +111,7 @@ class AccountInfoResponse:
     email: str = field(metadata=config(field_name="email"))
     history_key: str = field(metadata=config(field_name="history-key"))
     issues: list = field(metadata=config(field_name="issues"))
-    maildrop_email: str = field(metadata=config(field_name="maildrop-email"))
+    maildrop_email: str | None = field(metadata=config(field_name="maildrop-email"))
     status: str = field(metadata=config(field_name="status"))
 
 
@@ -113,9 +123,12 @@ class CloudAPI:
                 "User-Agent": "ThingsMac/32209501",
             },
             verify=False,
+            timeout=30.0,
         )
         self.email = email
         self.password = password
+
+    _history_key: str | None = None
 
     def login(self) -> LoginResponse:
         r: httpx.Response = self._do_api_request(
@@ -142,8 +155,25 @@ class CloudAPI:
             f"https://cloud.culturedcode.com/version/1/history/{history_key}/items",
             params={"start-index": index},
         )
+        with open(f"history_{index}.json", "w", encoding="utf-8") as f:
+            f.write(r.text)
         resp: HistoryResponse = HistoryResponse.from_json(r.text)
         return resp
+
+    def full_history(self) -> list[HistoryResponse]:
+        all_items: list[HistoryResponse] = []
+        index = 0
+        if self._history_key is None:
+            info = self.account_info()
+            self._history_key = info.history_key
+        history_key = self._history_key
+        while True:
+            resp = self.history(history_key, index)
+            all_items.append(resp)
+            if resp.end_total_content_size == resp.latest_total_content_size:
+                break
+            index += len(resp.items)
+        return all_items
 
     def _do_api_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         r: httpx.Response = self.client.request(method, url, **kwargs)
@@ -157,5 +187,5 @@ if __name__ == "__main__":
     api = CloudAPI(env.str("THINGS_EMAIL"), env.str("THINGS_PASSWORD"))
     api.login()
     info = api.account_info()
-    history = api.history(info.history_key, 6069)
-    print(history)
+    histories = api.full_history()
+    print(f"Total objects: {[len(history.items) for history in histories]}")
