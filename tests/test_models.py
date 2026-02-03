@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
-from opentasks.models import (
+from opentasks.things.models import (
     ENTITY_TYPE_TO_MODEL,
     Area,
     ChecklistItem,

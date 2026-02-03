@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from opentasks.cloud import (
+from opentasks.things.cloud import (
     CloudAPI,
     LoginResponse,
     ThingsLoginAuth,
@@ -82,7 +80,7 @@ class TestLoginResponse:
 
 
 class TestCloudAPILogin:
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_login_success(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -107,7 +105,7 @@ class TestCloudAPILogin:
 
 
 class TestCloudAPIAccountInfo:
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_account_info_success(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -133,7 +131,7 @@ class TestCloudAPIAccountInfo:
 
 
 class TestCloudAPIHistory:
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_history_success(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -175,7 +173,7 @@ class TestCloudAPIHistory:
 
 
 class TestCloudAPIFullHistory:
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_full_history_single_page(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -214,7 +212,7 @@ class TestCloudAPIFullHistory:
         assert len(result) == 1
         assert result[0].end_total_content_size == 1000
 
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_full_history_multiple_pages(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -277,7 +275,7 @@ class TestCloudAPIFullHistory:
 
 
 class TestCloudAPIFullState:
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_full_state(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -330,7 +328,7 @@ class TestCloudAPIFullState:
 
 
 class TestCloudAPIHistoryKey:
-    @patch("cloud.httpx.Client")
+    @patch("opentasks.things.cloud.httpx.Client")
     def test_history_key_cached(self, mock_client_cls: MagicMock) -> None:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client

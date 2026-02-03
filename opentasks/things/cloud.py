@@ -9,11 +9,11 @@ import environ
 import httpx
 from dataclasses_json import config, dataclass_json
 
-from opentasks.models import AccountInfoResponse, HistoryResponse
-from opentasks.parser import StateBuilder
+from .models import AccountInfoResponse, HistoryResponse
+from .parser import StateBuilder
 
 if TYPE_CHECKING:
-    from opentasks.parser import State
+    from .parser import State
 
 
 def _base64_encode(data: str) -> str:

@@ -7,12 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from opentasks.models import (
+from opentasks.things.models import (
     HistoryObject,
     HistoryResponse,
     Status,
 )
-from opentasks.parser import StateBuilder
+from opentasks.things.parser import StateBuilder
 
 
 def make_history_response(
