@@ -4,7 +4,7 @@ import copy
 from dataclasses import dataclass, field
 from typing import Any, Union
 
-from models import (
+from opentasks.models import (
     ENTITY_TYPE_TO_MODEL,
     Area,
     ChecklistItem,

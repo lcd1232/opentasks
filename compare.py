@@ -7,9 +7,9 @@ from typing import Any
 import environ
 import things
 
-from src.cloud import CloudAPI, HistoryResponse
-from src.models import StartType, Status, TaskType
-from src.parser import State, StateBuilder
+from opentasks.cloud import CloudAPI, HistoryResponse
+from opentasks.models import StartType, Status, TaskType
+from opentasks.parser import State, StateBuilder
 
 START_TYPE_MAP: dict[StartType, str] = {
     StartType.NOT_STARTED: "Inbox",
