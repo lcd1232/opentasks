@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import Qt, QSize, Signal, QEvent
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -22,10 +22,16 @@ from PySide6.QtWidgets import (
 )
 
 
+class TaskData:
+    def __init__(self, title: str, notes: str = ""):
+        self.title = title
+        self.notes = notes
+
+
 class TaskItem(QWidget):
-    def __init__(self, text: str):
+    def __init__(self, task: TaskData):
         super().__init__()
-        self.task_text = text
+        self.task = task
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -33,12 +39,15 @@ class TaskItem(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        self.label = QLabel(text)
+        self.label = QLabel(task.title)
         self.label.setStyleSheet("font-size: 15px; color: #333333;")
 
         layout.addWidget(self.checkbox)
         layout.addWidget(self.label)
         layout.addStretch()
+
+    def update_from_task(self):
+        self.label.setText(self.task.title)
 
 
 class EditorActionButton(QPushButton):
@@ -50,7 +59,7 @@ class EditorActionButton(QPushButton):
 
 
 class TaskEditor(QWidget):
-    task_created = Signal(str, str)
+    submitted = Signal(str, str)
     cancelled = Signal()
 
     def __init__(self, parent: QWidget | None = None):
@@ -82,6 +91,7 @@ class TaskEditor(QWidget):
         self.notes_input.setPlaceholderText("Notes")
         self.notes_input.setObjectName("editorNotesInput")
         self.notes_input.setFixedHeight(60)
+        self.notes_input.installEventFilter(self)
 
         actions_row = QHBoxLayout()
         actions_row.setSpacing(4)
@@ -109,6 +119,16 @@ class TaskEditor(QWidget):
         shadow.setColor(Qt.GlobalColor.gray)
         self.setGraphicsEffect(shadow)
 
+    def eventFilter(self, obj, event: QEvent) -> bool:
+        if obj == self.notes_input and event.type() == QEvent.Type.KeyPress:
+            if isinstance(event, QKeyEvent):
+                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                        return False
+                    self._on_submit()
+                    return True
+        return super().eventFilter(obj, event)
+
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Escape:
             self._on_cancel()
@@ -119,19 +139,111 @@ class TaskEditor(QWidget):
         title = self.title_input.text().strip()
         if title:
             notes = self.notes_input.toPlainText().strip()
-            self.task_created.emit(title, notes)
-            self._reset()
+            self.submitted.emit(title, notes)
 
     def _on_cancel(self):
-        self._reset()
         self.cancelled.emit()
 
-    def _reset(self):
+    def set_task(self, task: TaskData):
+        self.title_input.setText(task.title)
+        self.notes_input.setPlainText(task.notes)
+
+    def clear(self):
         self.title_input.clear()
         self.notes_input.clear()
 
     def focus_title(self):
         self.title_input.setFocus()
+        self.title_input.selectAll()
+
+
+class InlineTaskEditor(QWidget):
+    submitted = Signal(str, str)
+    cancelled = Signal()
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setObjectName("inlineTaskEditor")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+
+        self.checkbox = QCheckBox()
+        self.checkbox.setEnabled(False)
+
+        self.title_input = QLineEdit()
+        self.title_input.setPlaceholderText("Task title")
+        self.title_input.setObjectName("inlineEditorTitleInput")
+        self.title_input.returnPressed.connect(self._on_submit)
+
+        title_row.addWidget(self.checkbox)
+        title_row.addWidget(self.title_input)
+
+        self.notes_input = QTextEdit()
+        self.notes_input.setPlaceholderText("Notes")
+        self.notes_input.setObjectName("inlineEditorNotesInput")
+        self.notes_input.setFixedHeight(50)
+        self.notes_input.installEventFilter(self)
+
+        actions_row = QHBoxLayout()
+        actions_row.setSpacing(4)
+        actions_row.addStretch()
+
+        self.btn_date = EditorActionButton("📅")
+        self.btn_tag = EditorActionButton("🏷")
+        self.btn_checklist = EditorActionButton("☰")
+        self.btn_flag = EditorActionButton("🚩")
+
+        actions_row.addWidget(self.btn_date)
+        actions_row.addWidget(self.btn_tag)
+        actions_row.addWidget(self.btn_checklist)
+        actions_row.addWidget(self.btn_flag)
+
+        layout.addLayout(title_row)
+        layout.addWidget(self.notes_input)
+        layout.addLayout(actions_row)
+
+    def eventFilter(self, obj, event: QEvent) -> bool:
+        if obj == self.notes_input and event.type() == QEvent.Type.KeyPress:
+            if isinstance(event, QKeyEvent):
+                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                        return False
+                    self._on_submit()
+                    return True
+                if event.key() == Qt.Key.Key_Escape:
+                    self._on_cancel()
+                    return True
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key.Key_Escape:
+            self._on_cancel()
+        else:
+            super().keyPressEvent(event)
+
+    def _on_submit(self):
+        title = self.title_input.text().strip()
+        if title:
+            notes = self.notes_input.toPlainText().strip()
+            self.submitted.emit(title, notes)
+
+    def _on_cancel(self):
+        self.cancelled.emit()
+
+    def set_task(self, task: TaskData):
+        self.title_input.setText(task.title)
+        self.notes_input.setPlainText(task.notes)
+
+    def focus_title(self):
+        self.title_input.setFocus()
+        self.title_input.selectAll()
 
 
 class TaskListWidget(QListWidget):
@@ -145,15 +257,67 @@ class TaskListWidget(QListWidget):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
-    def add_task(self, text: str, position: int = -1):
+        self._editing_item: QListWidgetItem | None = None
+        self._editing_task: TaskData | None = None
+
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
+
+    def add_task(self, title: str, notes: str = "", position: int = -1):
+        task = TaskData(title, notes)
         item = QListWidgetItem()
-        task_widget = TaskItem(text)
+        task_widget = TaskItem(task)
         item.setSizeHint(QSize(0, 40))
+        item.setData(Qt.ItemDataRole.UserRole, task)
         if position < 0:
             self.addItem(item)
         else:
             self.insertItem(position, item)
         self.setItemWidget(item, task_widget)
+
+    def _on_item_double_clicked(self, item: QListWidgetItem):
+        if self._editing_item is not None:
+            self._cancel_edit()
+
+        task = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(task, TaskData):
+            return
+
+        self._editing_item = item
+        self._editing_task = task
+
+        editor = InlineTaskEditor()
+        editor.set_task(task)
+        editor.submitted.connect(self._on_edit_submitted)
+        editor.cancelled.connect(self._cancel_edit)
+
+        item.setSizeHint(QSize(0, 140))
+        self.setItemWidget(item, editor)
+        editor.focus_title()
+
+    def _on_edit_submitted(self, title: str, notes: str):
+        if self._editing_item is None or self._editing_task is None:
+            return
+
+        self._editing_task.title = title
+        self._editing_task.notes = notes
+
+        task_widget = TaskItem(self._editing_task)
+        self._editing_item.setSizeHint(QSize(0, 40))
+        self.setItemWidget(self._editing_item, task_widget)
+
+        self._editing_item = None
+        self._editing_task = None
+
+    def _cancel_edit(self):
+        if self._editing_item is None or self._editing_task is None:
+            return
+
+        task_widget = TaskItem(self._editing_task)
+        self._editing_item.setSizeHint(QSize(0, 40))
+        self.setItemWidget(self._editing_item, task_widget)
+
+        self._editing_item = None
+        self._editing_task = None
 
 
 class ToolbarButton(QPushButton):
@@ -238,21 +402,21 @@ class MainWindow(QMainWindow):
 
         self.task_editor = TaskEditor()
         self.task_editor.setVisible(False)
-        self.task_editor.task_created.connect(self._on_task_created)
+        self.task_editor.submitted.connect(self._on_task_created)
         self.task_editor.cancelled.connect(self._hide_editor)
         content_layout.addWidget(self.task_editor)
 
         self.task_list = TaskListWidget()
 
         sample_tasks = [
-            "Review open pull requests",
-            "Update Nginx virtual server config to pass custom headers",
-            "Draft release notes for opentasks v0.1",
-            "Check Ansible dependencies",
-            "Buy groceries for dinner",
+            ("Review open pull requests", "Check for merge conflicts"),
+            ("Update Nginx virtual server config to pass custom headers", ""),
+            ("Draft release notes for opentasks v0.1", "Include new features"),
+            ("Check Ansible dependencies", ""),
+            ("Buy groceries for dinner", "Milk, eggs, bread"),
         ]
-        for task_text in sample_tasks:
-            self.task_list.add_task(task_text)
+        for title, notes in sample_tasks:
+            self.task_list.add_task(title, notes)
 
         content_layout.addWidget(self.task_list)
 
@@ -289,6 +453,7 @@ class MainWindow(QMainWindow):
         parent_layout.addWidget(self.toolbar)
 
     def _show_editor(self):
+        self.task_editor.clear()
         self.task_editor.setVisible(True)
         self.task_editor.focus_title()
 
@@ -296,7 +461,8 @@ class MainWindow(QMainWindow):
         self.task_editor.setVisible(False)
 
     def _on_task_created(self, title: str, notes: str):
-        self.task_list.add_task(title, position=0)
+        self.task_list.add_task(title, notes, position=0)
+        self.task_editor.clear()
         self._hide_editor()
 
     def _apply_styles(self):
@@ -346,25 +512,30 @@ class MainWindow(QMainWindow):
                 margin-bottom: 16px;
             }
 
-            #editorTitleInput {
+            #inlineTaskEditor {
+                background-color: #FFFFFF;
+                border-radius: 8px;
+            }
+
+            #editorTitleInput, #inlineEditorTitleInput {
                 border: none;
                 background: transparent;
                 font-size: 15px;
                 color: #333333;
                 padding: 4px;
             }
-            #editorTitleInput:focus {
+            #editorTitleInput:focus, #inlineEditorTitleInput:focus {
                 outline: none;
             }
 
-            #editorNotesInput {
+            #editorNotesInput, #inlineEditorNotesInput {
                 border: none;
                 background: transparent;
                 font-size: 13px;
                 color: #666666;
                 padding: 4px;
             }
-            #editorNotesInput:focus {
+            #editorNotesInput:focus, #inlineEditorNotesInput:focus {
                 outline: none;
             }
 
