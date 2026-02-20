@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QHBoxLayout,
@@ -12,7 +13,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -21,8 +21,10 @@ from PySide6.QtWidgets import (
 class TaskItem(QWidget):
     def __init__(self, text: str):
         super().__init__()
+        self.task_text = text
+
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 8, 0, 8)
+        layout.setContentsMargins(8, 8, 8, 8)
 
         self.checkbox = QCheckBox()
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -33,6 +35,25 @@ class TaskItem(QWidget):
         layout.addWidget(self.checkbox)
         layout.addWidget(self.label)
         layout.addStretch()
+
+
+class TaskListWidget(QListWidget):
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("taskList")
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def add_task(self, text: str):
+        item = QListWidgetItem(self)
+        task_widget = TaskItem(text)
+        item.setSizeHint(QSize(0, 40))
+        self.addItem(item)
+        self.setItemWidget(item, task_widget)
 
 
 class ToolbarButton(QPushButton):
@@ -108,7 +129,6 @@ class MainWindow(QMainWindow):
         self.content_area.setObjectName("contentArea")
         content_layout = QVBoxLayout(self.content_area)
         content_layout.setContentsMargins(40, 40, 40, 40)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.header = QLabel("Inbox")
         self.header.setObjectName("headerLabel")
@@ -116,16 +136,7 @@ class MainWindow(QMainWindow):
 
         content_layout.addSpacing(20)
 
-        self.task_scroll = QScrollArea()
-        self.task_scroll.setWidgetResizable(True)
-        self.task_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        self.task_scroll.setStyleSheet("background: transparent;")
-
-        self.task_container = QWidget()
-        self.task_layout = QVBoxLayout(self.task_container)
-        self.task_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.task_layout.setContentsMargins(0, 0, 0, 0)
-        self.task_layout.setSpacing(2)
+        self.task_list = TaskListWidget()
 
         sample_tasks = [
             "Review open pull requests",
@@ -135,10 +146,9 @@ class MainWindow(QMainWindow):
             "Buy groceries for dinner",
         ]
         for task_text in sample_tasks:
-            self.task_layout.addWidget(TaskItem(task_text))
+            self.task_list.add_task(task_text)
 
-        self.task_scroll.setWidget(self.task_container)
-        content_layout.addWidget(self.task_scroll)
+        content_layout.addWidget(self.task_list)
 
         parent_layout.addWidget(self.content_area)
 
@@ -210,6 +220,24 @@ class MainWindow(QMainWindow):
                 font-size: 28px;
                 font-weight: bold;
                 color: #222222;
+            }
+
+            #taskList {
+                background: transparent;
+                border: none;
+                outline: none;
+            }
+            #taskList::item {
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                margin-bottom: 2px;
+            }
+            #taskList::item:hover {
+                background-color: #F0F0F0;
+            }
+            #taskList::item:selected {
+                background-color: #E8E8E8;
             }
 
             QCheckBox::indicator {
