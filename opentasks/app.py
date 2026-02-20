@@ -268,6 +268,7 @@ class TaskListWidget(QListWidget):
 
         self._editing_item: QListWidgetItem | None = None
         self._editing_task: TaskData | None = None
+        self._is_new_task: bool = False
 
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.itemClicked.connect(self._on_item_clicked)
@@ -275,6 +276,12 @@ class TaskListWidget(QListWidget):
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Delete:
             self._delete_selected_task()
+        elif event.key() == Qt.Key.Key_Escape:
+            if self._editing_item is not None:
+                self._cancel_edit()
+            else:
+                self.clearSelection()
+                self.setCurrentRow(-1)
         elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             current = self.currentItem()
             if current is not None and self._editing_item is None:
@@ -310,12 +317,22 @@ class TaskListWidget(QListWidget):
         if current is not None:
             position = self.row(current) + 1
         else:
-            position = self.count()
+            position = 0
 
         self.add_task("", "", position)
         new_item = self.item(position)
         self.setCurrentItem(new_item)
+        self._is_new_task = True
         self._on_item_double_clicked(new_item)
+
+    def mousePressEvent(self, event):
+        item = self.itemAt(event.pos())
+        if item is None:
+            self.clearSelection()
+            self.setCurrentRow(-1)
+            if self._editing_item is not None:
+                self._cancel_edit()
+        super().mousePressEvent(event)
 
     def add_task(self, title: str, notes: str = "", position: int = -1):
         task = TaskData(title, notes)
@@ -359,27 +376,37 @@ class TaskListWidget(QListWidget):
         if self._editing_item is None or self._editing_task is None:
             return
 
-        self._editing_task.title = title
-        self._editing_task.notes = notes
+        if not title and self._is_new_task:
+            row = self.row(self._editing_item)
+            self.takeItem(row)
+        else:
+            self._editing_task.title = title
+            self._editing_task.notes = notes
 
-        task_widget = TaskItem(self._editing_task)
-        self._editing_item.setSizeHint(QSize(0, 40))
-        self.setItemWidget(self._editing_item, task_widget)
+            task_widget = TaskItem(self._editing_task)
+            self._editing_item.setSizeHint(QSize(0, 40))
+            self.setItemWidget(self._editing_item, task_widget)
 
         self._editing_item = None
         self._editing_task = None
+        self._is_new_task = False
         self.setFocus()
 
     def _cancel_edit(self):
         if self._editing_item is None or self._editing_task is None:
             return
 
-        task_widget = TaskItem(self._editing_task)
-        self._editing_item.setSizeHint(QSize(0, 40))
-        self.setItemWidget(self._editing_item, task_widget)
+        if self._is_new_task and not self._editing_task.title:
+            row = self.row(self._editing_item)
+            self.takeItem(row)
+        else:
+            task_widget = TaskItem(self._editing_task)
+            self._editing_item.setSizeHint(QSize(0, 40))
+            self.setItemWidget(self._editing_item, task_widget)
 
         self._editing_item = None
         self._editing_task = None
+        self._is_new_task = False
         self.setFocus()
 
     def _on_navigate(self, direction: int):
