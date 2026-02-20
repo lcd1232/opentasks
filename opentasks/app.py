@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QKeyEvent, QPainter, QColor
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -20,40 +20,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-
-class CursorLineEdit(QLineEdit):
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._cursor_visible = True
-        self._cursor_timer = QTimer(self)
-        self._cursor_timer.timeout.connect(self._toggle_cursor)
-        self._cursor_timer.setInterval(530)
-
-    def focusInEvent(self, event):
-        super().focusInEvent(event)
-        self._cursor_visible = True
-        self._cursor_timer.start()
-        self.update()
-
-    def focusOutEvent(self, event):
-        super().focusOutEvent(event)
-        self._cursor_timer.stop()
-        self._cursor_visible = False
-        self.update()
-
-    def _toggle_cursor(self):
-        self._cursor_visible = not self._cursor_visible
-        self.update()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        if self.hasFocus() and self._cursor_visible:
-            painter = QPainter(self)
-            cursor_rect = self.cursorRect()
-            cursor_rect.setWidth(2)
-            painter.fillRect(cursor_rect, QColor("#333333"))
-            painter.end()
 
 
 class TaskData:
@@ -113,7 +79,7 @@ class TaskEditor(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setEnabled(False)
 
-        self.title_input = CursorLineEdit()
+        self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("New To-Do")
         self.title_input.setObjectName("editorTitleInput")
         self.title_input.returnPressed.connect(self._on_submit)
@@ -214,7 +180,7 @@ class InlineTaskEditor(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setEnabled(False)
 
-        self.title_input = CursorLineEdit()
+        self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("Task title")
         self.title_input.setObjectName("inlineEditorTitleInput")
         self.title_input.returnPressed.connect(self._on_submit)
@@ -609,7 +575,7 @@ class MainWindow(QMainWindow):
                 background: transparent;
                 font-size: 15px;
                 color: #333333;
-                padding: 4px;
+                padding: 0px;
                 selection-background-color: #4A90D9;
                 selection-color: white;
             }
