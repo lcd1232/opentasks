@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QKeyEvent, QPainter, QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -20,6 +20,40 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+class CursorLineEdit(QLineEdit):
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._cursor_visible = True
+        self._cursor_timer = QTimer(self)
+        self._cursor_timer.timeout.connect(self._toggle_cursor)
+        self._cursor_timer.setInterval(530)
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self._cursor_visible = True
+        self._cursor_timer.start()
+        self.update()
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self._cursor_timer.stop()
+        self._cursor_visible = False
+        self.update()
+
+    def _toggle_cursor(self):
+        self._cursor_visible = not self._cursor_visible
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.hasFocus() and self._cursor_visible:
+            painter = QPainter(self)
+            cursor_rect = self.cursorRect()
+            cursor_rect.setWidth(2)
+            painter.fillRect(cursor_rect, QColor("#333333"))
+            painter.end()
 
 
 class TaskData:
@@ -79,7 +113,7 @@ class TaskEditor(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setEnabled(False)
 
-        self.title_input = QLineEdit()
+        self.title_input = CursorLineEdit()
         self.title_input.setPlaceholderText("New To-Do")
         self.title_input.setObjectName("editorTitleInput")
         self.title_input.returnPressed.connect(self._on_submit)
@@ -91,6 +125,7 @@ class TaskEditor(QWidget):
         self.notes_input.setPlaceholderText("Notes")
         self.notes_input.setObjectName("editorNotesInput")
         self.notes_input.setFixedHeight(60)
+        self.notes_input.setCursorWidth(2)
         self.notes_input.installEventFilter(self)
 
         actions_row = QHBoxLayout()
@@ -179,7 +214,7 @@ class InlineTaskEditor(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setEnabled(False)
 
-        self.title_input = QLineEdit()
+        self.title_input = CursorLineEdit()
         self.title_input.setPlaceholderText("Task title")
         self.title_input.setObjectName("inlineEditorTitleInput")
         self.title_input.returnPressed.connect(self._on_submit)
@@ -191,6 +226,7 @@ class InlineTaskEditor(QWidget):
         self.notes_input.setPlaceholderText("Notes")
         self.notes_input.setObjectName("inlineEditorNotesInput")
         self.notes_input.setFixedHeight(50)
+        self.notes_input.setCursorWidth(2)
         self.notes_input.installEventFilter(self)
 
         actions_row = QHBoxLayout()
@@ -304,6 +340,10 @@ class TaskListWidget(QListWidget):
         else:
             self.insertItem(position, item)
         self.setItemWidget(item, task_widget)
+
+    def _on_item_clicked(self, item: QListWidgetItem):
+        if self._editing_item is not None and item != self._editing_item:
+            self._cancel_edit()
 
     def _on_item_double_clicked(self, item: QListWidgetItem):
         if self._editing_item is not None:
@@ -515,7 +555,7 @@ class MainWindow(QMainWindow):
     def _apply_styles(self):
         self.setStyleSheet("""
             * {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                font-family: "SF Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             }
 
             #sidebar {
@@ -570,9 +610,8 @@ class MainWindow(QMainWindow):
                 font-size: 15px;
                 color: #333333;
                 padding: 4px;
-            }
-            #editorTitleInput:focus, #inlineEditorTitleInput:focus {
-                outline: none;
+                selection-background-color: #4A90D9;
+                selection-color: white;
             }
 
             #editorNotesInput, #inlineEditorNotesInput {
@@ -581,9 +620,8 @@ class MainWindow(QMainWindow):
                 font-size: 13px;
                 color: #666666;
                 padding: 4px;
-            }
-            #editorNotesInput:focus, #inlineEditorNotesInput:focus {
-                outline: none;
+                selection-background-color: #4A90D9;
+                selection-color: white;
             }
 
             #editorActionButton {
