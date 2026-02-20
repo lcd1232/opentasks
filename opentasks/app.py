@@ -283,6 +283,13 @@ class TaskListWidget(QListWidget):
             if self._editing_item is not None:
                 self._cancel_edit()
             super().keyPressEvent(event)
+        elif event.key() == Qt.Key.Key_Space:
+            self._create_task_below_current()
+        elif (
+            event.key() == Qt.Key.Key_N
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
+            self._create_task_below_current()
         else:
             super().keyPressEvent(event)
 
@@ -294,6 +301,21 @@ class TaskListWidget(QListWidget):
             self._cancel_edit()
         row = self.row(current)
         self.takeItem(row)
+
+    def _create_task_below_current(self):
+        if self._editing_item is not None:
+            self._cancel_edit()
+
+        current = self.currentItem()
+        if current is not None:
+            position = self.row(current) + 1
+        else:
+            position = self.count()
+
+        self.add_task("", "", position)
+        new_item = self.item(position)
+        self.setCurrentItem(new_item)
+        self._on_item_double_clicked(new_item)
 
     def add_task(self, title: str, notes: str = "", position: int = -1):
         task = TaskData(title, notes)
