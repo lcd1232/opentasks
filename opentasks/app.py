@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -34,6 +35,13 @@ class TaskItem(QWidget):
         layout.addStretch()
 
 
+class ToolbarButton(QPushButton):
+    def __init__(self, text: str):
+        super().__init__(text)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(36, 36)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -42,15 +50,23 @@ class MainWindow(QMainWindow):
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        self._setup_sidebar(main_layout)
-        self._setup_content_area(main_layout)
+        content_row = QWidget()
+        content_row_layout = QHBoxLayout(content_row)
+        content_row_layout.setContentsMargins(0, 0, 0, 0)
+        content_row_layout.setSpacing(0)
+
+        self._setup_sidebar(content_row_layout)
+        self._setup_content_area(content_row_layout)
+
+        main_layout.addWidget(content_row, 1)
+        self._setup_bottom_toolbar(main_layout)
         self._apply_styles()
 
-    def _setup_sidebar(self, main_layout: QHBoxLayout):
+    def _setup_sidebar(self, parent_layout: QHBoxLayout):
         self.sidebar = QWidget()
         self.sidebar.setFixedWidth(220)
         self.sidebar.setObjectName("sidebar")
@@ -85,9 +101,9 @@ class MainWindow(QMainWindow):
         self.logbook_list.addItem(QListWidgetItem("📚  Logbook"))
         sidebar_layout.addWidget(self.logbook_list)
 
-        main_layout.addWidget(self.sidebar)
+        parent_layout.addWidget(self.sidebar)
 
-    def _setup_content_area(self, main_layout: QHBoxLayout):
+    def _setup_content_area(self, parent_layout: QHBoxLayout):
         self.content_area = QWidget()
         self.content_area.setObjectName("contentArea")
         content_layout = QVBoxLayout(self.content_area)
@@ -124,7 +140,36 @@ class MainWindow(QMainWindow):
         self.task_scroll.setWidget(self.task_container)
         content_layout.addWidget(self.task_scroll)
 
-        main_layout.addWidget(self.content_area)
+        parent_layout.addWidget(self.content_area)
+
+    def _setup_bottom_toolbar(self, parent_layout: QVBoxLayout):
+        self.toolbar = QWidget()
+        self.toolbar.setObjectName("bottomToolbar")
+        self.toolbar.setFixedHeight(48)
+
+        toolbar_layout = QHBoxLayout(self.toolbar)
+        toolbar_layout.setContentsMargins(16, 0, 16, 0)
+        toolbar_layout.setSpacing(8)
+
+        self.btn_add = ToolbarButton("+")
+        self.btn_add.setObjectName("addButton")
+
+        self.btn_calendar = ToolbarButton("📅")
+        self.btn_calendar.setObjectName("toolbarButton")
+
+        self.btn_next = ToolbarButton("→")
+        self.btn_next.setObjectName("toolbarButton")
+
+        self.btn_search = ToolbarButton("🔍")
+        self.btn_search.setObjectName("toolbarButton")
+
+        toolbar_layout.addWidget(self.btn_add)
+        toolbar_layout.addStretch()
+        toolbar_layout.addWidget(self.btn_calendar)
+        toolbar_layout.addWidget(self.btn_next)
+        toolbar_layout.addWidget(self.btn_search)
+
+        parent_layout.addWidget(self.toolbar)
 
     def _apply_styles(self):
         self.setStyleSheet("""
@@ -168,18 +213,53 @@ class MainWindow(QMainWindow):
             }
 
             QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-                border-radius: 10px;
-                border: 2px solid #C0C0C0;
+                width: 16px;
+                height: 16px;
+                border-radius: 4px;
+                border: 1.5px solid #C0C0C0;
                 background-color: transparent;
             }
             QCheckBox::indicator:hover {
-                border: 2px solid #4A90D9;
+                border: 1.5px solid #4A90D9;
             }
             QCheckBox::indicator:checked {
                 background-color: #4A90D9;
-                border: 2px solid #4A90D9;
+                border: 1.5px solid #4A90D9;
+            }
+
+            #bottomToolbar {
+                background-color: #2A2A2A;
+                border-top: 1px solid #3A3A3A;
+            }
+
+            #addButton {
+                background-color: #4A90D9;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            #addButton:hover {
+                background-color: #5A9FE8;
+            }
+            #addButton:pressed {
+                background-color: #3A80C9;
+            }
+
+            #toolbarButton {
+                background-color: transparent;
+                color: #A0A0A0;
+                border: none;
+                border-radius: 6px;
+                font-size: 16px;
+            }
+            #toolbarButton:hover {
+                background-color: #3A3A3A;
+                color: #FFFFFF;
+            }
+            #toolbarButton:pressed {
+                background-color: #4A4A4A;
             }
         """)
 
