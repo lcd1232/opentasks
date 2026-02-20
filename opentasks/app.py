@@ -154,12 +154,14 @@ class TaskEditor(QWidget):
 
     def focus_title(self):
         self.title_input.setFocus()
-        self.title_input.selectAll()
+        self.title_input.setCursorPosition(len(self.title_input.text()))
 
 
 class InlineTaskEditor(QWidget):
     submitted = Signal(str, str)
     cancelled = Signal()
+    delete_requested = Signal()
+    navigate = Signal(int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -225,6 +227,12 @@ class InlineTaskEditor(QWidget):
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Escape:
             self._on_cancel()
+        elif event.key() == Qt.Key.Key_Delete:
+            self.delete_requested.emit()
+        elif event.key() == Qt.Key.Key_Up:
+            self.navigate.emit(-1)
+        elif event.key() == Qt.Key.Key_Down:
+            self.navigate.emit(1)
         else:
             super().keyPressEvent(event)
 
@@ -243,7 +251,7 @@ class InlineTaskEditor(QWidget):
 
     def focus_title(self):
         self.title_input.setFocus()
-        self.title_input.selectAll()
+        self.title_input.setCursorPosition(len(self.title_input.text()))
 
 
 class TaskListWidget(QListWidget):
@@ -255,12 +263,30 @@ class TaskListWidget(QListWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self._editing_item: QListWidgetItem | None = None
         self._editing_task: TaskData | None = None
 
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key.Key_Delete:
+            self._delete_selected_task()
+        elif event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+            if self._editing_item is not None:
+                self._cancel_edit()
+            super().keyPressEvent(event)
+        else:
+            super().keyPressEvent(event)
+
+    def _delete_selected_task(self):
+        current = self.currentItem()
+        if current is None:
+            return
+        if self._editing_item is not None:
+            self._cancel_edit()
+        row = self.row(current)
+        self.takeItem(row)
 
     def add_task(self, title: str, notes: str = "", position: int = -1):
         task = TaskData(title, notes)
@@ -289,6 +315,8 @@ class TaskListWidget(QListWidget):
         editor.set_task(task)
         editor.submitted.connect(self._on_edit_submitted)
         editor.cancelled.connect(self._cancel_edit)
+        editor.delete_requested.connect(self._delete_selected_task)
+        editor.navigate.connect(self._on_navigate)
 
         item.setSizeHint(QSize(0, 140))
         self.setItemWidget(item, editor)
@@ -318,6 +346,18 @@ class TaskListWidget(QListWidget):
 
         self._editing_item = None
         self._editing_task = None
+
+    def _on_navigate(self, direction: int):
+        if self._editing_item is None:
+            return
+
+        current_row = self.row(self._editing_item)
+        new_row = current_row + direction
+
+        if 0 <= new_row < self.count():
+            self._cancel_edit()
+            self.setCurrentRow(new_row)
+            self.setFocus()
 
 
 class ToolbarButton(QPushButton):
