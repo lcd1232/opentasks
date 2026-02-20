@@ -1,0 +1,12 @@
+version: "3"
+
+tasks:
+  tests:
+    desc: Run the test suite with coverage
+    cmds:
+      - uv run pytest tests/ --cov=opentasks --cov-report=term-missing --cov-report=xml
+
+  run:
+    desc: Run the OpenTasks application
+    cmds:
+      - uv run python opentasks/app.py
