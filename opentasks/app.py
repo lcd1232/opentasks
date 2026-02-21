@@ -83,7 +83,7 @@ class ChecklistItemWidget(QWidget):
         layout.addWidget(self.title_input, 1)
         layout.addWidget(self.delete_btn)
 
-        self.setMinimumHeight(32)
+        self.setFixedHeight(32)
         self._update_style()
 
     def _on_checkbox_changed(self, state: int):
@@ -162,6 +162,8 @@ class ChecklistItemWidget(QWidget):
 
 
 class ChecklistWidget(QWidget):
+    items_changed = Signal()
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("checklistWidget")
@@ -170,19 +172,20 @@ class ChecklistWidget(QWidget):
 
     def _setup_ui(self):
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(20, 8, 8, 8)
-        self._layout.setSpacing(2)
+        self._layout.setContentsMargins(20, 4, 0, 4)
+        self._layout.setSpacing(0)
 
         self._items_container = QWidget()
+        self._items_container.setObjectName("checklistItemsContainer")
         self._items_layout = QVBoxLayout(self._items_container)
         self._items_layout.setContentsMargins(0, 0, 0, 0)
-        self._items_layout.setSpacing(2)
+        self._items_layout.setSpacing(0)
 
         self._add_btn = QPushButton("+ Add checklist item")
         self._add_btn.setObjectName("checklistAddBtn")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.clicked.connect(self._add_new_item)
-        self._add_btn.setMinimumHeight(28)
+        self._add_btn.setFixedHeight(28)
 
         self._layout.addWidget(self._items_container)
         self._layout.addWidget(self._add_btn)
@@ -207,6 +210,8 @@ class ChecklistWidget(QWidget):
             self._items_layout.insertWidget(index, widget)
             self._items.insert(index, widget)
 
+        self.items_changed.emit()
+
         if focus:
             widget.focus_input()
 
@@ -215,6 +220,8 @@ class ChecklistWidget(QWidget):
         self._items.remove(widget)
         self._items_layout.removeWidget(widget)
         widget.deleteLater()
+
+        self.items_changed.emit()
 
         if self._items:
             focus_idx = min(idx, len(self._items) - 1)
@@ -259,6 +266,14 @@ class ChecklistWidget(QWidget):
 
     def has_items(self) -> bool:
         return len(self._items) > 0
+
+    def item_count(self) -> int:
+        return len(self._items)
+
+    def required_height(self) -> int:
+        if not self._items:
+            return 28
+        return len(self._items) * 32 + 28 + 8
 
 
 class TaskItem(QWidget):
@@ -489,6 +504,7 @@ class InlineTaskEditor(QWidget):
 
         self.checklist_widget = ChecklistWidget()
         self.checklist_widget.setVisible(False)
+        self.checklist_widget.items_changed.connect(self._on_checklist_changed)
 
         actions_row = QHBoxLayout()
         actions_row.setSpacing(4)
@@ -513,10 +529,21 @@ class InlineTaskEditor(QWidget):
     def _toggle_checklist(self):
         is_visible = not self.checklist_widget.isVisible()
         self.checklist_widget.setVisible(is_visible)
-        height = 250 if is_visible else 140
-        self.size_changed.emit(height)
+        self._emit_size_changed()
         if is_visible:
             self.checklist_widget.focus_first_or_add()
+
+    def _on_checklist_changed(self):
+        if self.checklist_widget.isVisible():
+            self._emit_size_changed()
+
+    def _emit_size_changed(self):
+        base_height = 140
+        if self.checklist_widget.isVisible():
+            checklist_height = self.checklist_widget.required_height()
+            self.size_changed.emit(base_height + checklist_height)
+        else:
+            self.size_changed.emit(base_height)
 
     def eventFilter(self, obj, event: QEvent) -> bool:
         if event.type() == QEvent.Type.KeyPress:
@@ -708,7 +735,12 @@ class TaskListWidget(QListWidget):
         editor.navigate.connect(self._on_navigate)
         editor.size_changed.connect(lambda h, i=item: i.setSizeHint(QSize(0, h)))
 
-        height = 250 if task.checklist else 140
+        base_height = 140
+        if task.checklist:
+            checklist_height = len(task.checklist) * 32 + 28 + 8
+            height = base_height + checklist_height
+        else:
+            height = base_height
         item.setSizeHint(QSize(0, height))
         self.setItemWidget(item, editor)
         editor.focus_title()
@@ -1071,32 +1103,32 @@ class MainWindow(QMainWindow):
                 background: transparent;
             }
 
+            #checklistItemsContainer {
+                background: transparent;
+            }
+
             #checklistItemWidget QCheckBox::indicator {
-                width: 14px;
-                height: 14px;
-                border-radius: 3px;
-                border: 1.5px solid #C0C0C0;
-                background-color: #FFFFFF;
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border: 2px solid #4A90D9;
+                background-color: transparent;
             }
             #checklistItemWidget QCheckBox::indicator:hover {
-                border: 1.5px solid #4A90D9;
+                border: 2px solid #5A9FE8;
+                background-color: rgba(74, 144, 217, 0.1);
             }
             #checklistItemWidget QCheckBox::indicator:checked {
                 background-color: #4A90D9;
-                border: 1.5px solid #4A90D9;
+                border: 2px solid #4A90D9;
             }
 
             #checklistItemInput {
                 border: none;
-                background-color: #F5F5F5;
-                border-radius: 4px;
-                font-size: 13px;
+                background: transparent;
+                font-size: 14px;
                 color: #333333;
-                padding: 4px 8px;
-            }
-            #checklistItemInput:focus {
-                background-color: #FFFFFF;
-                border: 1px solid #4A90D9;
+                padding: 4px 0px;
             }
 
             #checklistDeleteBtn {
