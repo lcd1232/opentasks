@@ -22,10 +22,243 @@ from PySide6.QtWidgets import (
 )
 
 
+class ChecklistItemData:
+    def __init__(self, title: str, completed: bool = False, cancelled: bool = False):
+        self.title = title
+        self.completed = completed
+        self.cancelled = cancelled
+
+
 class TaskData:
-    def __init__(self, title: str, notes: str = ""):
+    def __init__(
+        self,
+        title: str,
+        notes: str = "",
+        checklist: list[ChecklistItemData] | None = None,
+    ):
         self.title = title
         self.notes = notes
+        self.checklist: list[ChecklistItemData] = checklist if checklist else []
+
+
+class ChecklistItemWidget(QWidget):
+    delete_requested = Signal()
+    move_requested = Signal(int)
+    focus_next = Signal()
+    focus_previous = Signal()
+
+    def __init__(self, item: ChecklistItemData, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.item = item
+        self.setObjectName("checklistItemWidget")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(8)
+
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(self.item.completed)
+        self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.checkbox.stateChanged.connect(self._on_checkbox_changed)
+        self.checkbox.setFixedSize(20, 20)
+
+        self.title_input = QLineEdit()
+        self.title_input.setText(self.item.title)
+        self.title_input.setPlaceholderText("New checklist item")
+        self.title_input.setObjectName("checklistItemInput")
+        self.title_input.textChanged.connect(self._on_title_changed)
+        self.title_input.installEventFilter(self)
+        self.title_input.setMinimumHeight(24)
+
+        self.delete_btn = QPushButton("×")
+        self.delete_btn.setObjectName("checklistDeleteBtn")
+        self.delete_btn.setFixedSize(20, 20)
+        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.delete_btn.clicked.connect(self.delete_requested.emit)
+        self.delete_btn.setVisible(False)
+
+        layout.addWidget(self.checkbox)
+        layout.addWidget(self.title_input, 1)
+        layout.addWidget(self.delete_btn)
+
+        self.setMinimumHeight(32)
+        self._update_style()
+
+    def _on_checkbox_changed(self, state: int):
+        self.item.completed = state == Qt.CheckState.Checked.value
+        self._update_style()
+
+    def _on_title_changed(self, text: str):
+        self.item.title = text
+
+    def _update_style(self):
+        if self.item.completed:
+            self.title_input.setStyleSheet(
+                "text-decoration: line-through; color: #999999;"
+            )
+        elif self.item.cancelled:
+            self.title_input.setStyleSheet(
+                "text-decoration: line-through; color: #CC6666;"
+            )
+        else:
+            self.title_input.setStyleSheet("color: #333333;")
+
+    def set_cancelled(self, cancelled: bool):
+        self.item.cancelled = cancelled
+        if cancelled:
+            self.item.completed = False
+            self.checkbox.setChecked(False)
+        self._update_style()
+
+    def eventFilter(self, obj, event: QEvent) -> bool:
+        if obj == self.title_input and event.type() == QEvent.Type.KeyPress:
+            if isinstance(event, QKeyEvent):
+                key = event.key()
+                modifiers = event.modifiers()
+
+                if key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
+                    self.focus_next.emit()
+                    return True
+                if key == Qt.Key.Key_Delete or key == Qt.Key.Key_Backspace:
+                    if not self.title_input.text():
+                        self.delete_requested.emit()
+                        return True
+                if key == Qt.Key.Key_Up:
+                    if modifiers & Qt.KeyboardModifier.ControlModifier:
+                        self.move_requested.emit(-1)
+                        return True
+                    self.focus_previous.emit()
+                    return True
+                if key == Qt.Key.Key_Down:
+                    if modifiers & Qt.KeyboardModifier.ControlModifier:
+                        self.move_requested.emit(1)
+                        return True
+                    self.focus_next.emit()
+                    return True
+                if (
+                    key == Qt.Key.Key_K
+                    and modifiers & Qt.KeyboardModifier.ControlModifier
+                ):
+                    if modifiers & Qt.KeyboardModifier.AltModifier:
+                        self.set_cancelled(not self.item.cancelled)
+                    else:
+                        self.checkbox.setChecked(not self.checkbox.isChecked())
+                    return True
+        return super().eventFilter(obj, event)
+
+    def enterEvent(self, event):
+        self.delete_btn.setVisible(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.delete_btn.setVisible(False)
+        super().leaveEvent(event)
+
+    def focus_input(self):
+        self.title_input.setFocus()
+        self.title_input.setCursorPosition(len(self.title_input.text()))
+
+
+class ChecklistWidget(QWidget):
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setObjectName("checklistWidget")
+        self._items: list[ChecklistItemWidget] = []
+        self._setup_ui()
+
+    def _setup_ui(self):
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(20, 8, 8, 8)
+        self._layout.setSpacing(2)
+
+        self._items_container = QWidget()
+        self._items_layout = QVBoxLayout(self._items_container)
+        self._items_layout.setContentsMargins(0, 0, 0, 0)
+        self._items_layout.setSpacing(2)
+
+        self._add_btn = QPushButton("+ Add checklist item")
+        self._add_btn.setObjectName("checklistAddBtn")
+        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._add_btn.clicked.connect(self._add_new_item)
+        self._add_btn.setMinimumHeight(28)
+
+        self._layout.addWidget(self._items_container)
+        self._layout.addWidget(self._add_btn)
+
+    def _add_new_item(self, focus: bool = True):
+        item_data = ChecklistItemData("")
+        self._add_item_widget(item_data, focus=focus)
+
+    def _add_item_widget(
+        self, item_data: ChecklistItemData, index: int = -1, focus: bool = True
+    ):
+        widget = ChecklistItemWidget(item_data)
+        widget.delete_requested.connect(lambda w=widget: self._remove_item(w))
+        widget.move_requested.connect(lambda d, w=widget: self._move_item(w, d))
+        widget.focus_next.connect(lambda w=widget: self._focus_next(w))
+        widget.focus_previous.connect(lambda w=widget: self._focus_previous(w))
+
+        if index < 0:
+            self._items_layout.addWidget(widget)
+            self._items.append(widget)
+        else:
+            self._items_layout.insertWidget(index, widget)
+            self._items.insert(index, widget)
+
+        if focus:
+            widget.focus_input()
+
+    def _remove_item(self, widget: ChecklistItemWidget):
+        idx = self._items.index(widget)
+        self._items.remove(widget)
+        self._items_layout.removeWidget(widget)
+        widget.deleteLater()
+
+        if self._items:
+            focus_idx = min(idx, len(self._items) - 1)
+            self._items[focus_idx].focus_input()
+
+    def _move_item(self, widget: ChecklistItemWidget, direction: int):
+        idx = self._items.index(widget)
+        new_idx = idx + direction
+        if 0 <= new_idx < len(self._items):
+            self._items.remove(widget)
+            self._items_layout.removeWidget(widget)
+            self._items.insert(new_idx, widget)
+            self._items_layout.insertWidget(new_idx, widget)
+            widget.focus_input()
+
+    def _focus_next(self, widget: ChecklistItemWidget):
+        idx = self._items.index(widget)
+        if idx < len(self._items) - 1:
+            self._items[idx + 1].focus_input()
+        else:
+            self._add_new_item()
+
+    def _focus_previous(self, widget: ChecklistItemWidget):
+        idx = self._items.index(widget)
+        if idx > 0:
+            self._items[idx - 1].focus_input()
+
+    def set_checklist(self, items: list[ChecklistItemData]):
+        for widget in self._items[:]:
+            self._remove_item(widget)
+        for item_data in items:
+            self._add_item_widget(item_data, focus=False)
+
+    def get_checklist(self) -> list[ChecklistItemData]:
+        return [w.item for w in self._items]
+
+    def focus_first_or_add(self):
+        if self._items:
+            self._items[0].focus_input()
+        else:
+            self._add_new_item()
+
+    def has_items(self) -> bool:
+        return len(self._items) > 0
 
 
 class TaskItem(QWidget):
@@ -42,12 +275,27 @@ class TaskItem(QWidget):
         self.label = QLabel(task.title)
         self.label.setStyleSheet("font-size: 15px; color: #333333;")
 
+        self.checklist_indicator = QLabel()
+        self.checklist_indicator.setObjectName("checklistIndicator")
+        self._update_checklist_indicator()
+
         layout.addWidget(self.checkbox)
         layout.addWidget(self.label)
+        layout.addWidget(self.checklist_indicator)
         layout.addStretch()
+
+    def _update_checklist_indicator(self):
+        if self.task.checklist:
+            completed = sum(1 for item in self.task.checklist if item.completed)
+            total = len(self.task.checklist)
+            self.checklist_indicator.setText(f"☰ {completed}/{total}")
+            self.checklist_indicator.setVisible(True)
+        else:
+            self.checklist_indicator.setVisible(False)
 
     def update_from_task(self):
         self.label.setText(self.task.title)
+        self._update_checklist_indicator()
 
 
 class EditorActionButton(QPushButton):
@@ -59,7 +307,7 @@ class EditorActionButton(QPushButton):
 
 
 class TaskEditor(QWidget):
-    submitted = Signal(str, str)
+    submitted = Signal(str, str, list)
     cancelled = Signal()
 
     def __init__(self, parent: QWidget | None = None):
@@ -83,6 +331,7 @@ class TaskEditor(QWidget):
         self.title_input.setPlaceholderText("New To-Do")
         self.title_input.setObjectName("editorTitleInput")
         self.title_input.returnPressed.connect(self._on_submit)
+        self.title_input.installEventFilter(self)
 
         title_row.addWidget(self.checkbox)
         title_row.addWidget(self.title_input)
@@ -94,6 +343,9 @@ class TaskEditor(QWidget):
         self.notes_input.setCursorWidth(2)
         self.notes_input.installEventFilter(self)
 
+        self.checklist_widget = ChecklistWidget()
+        self.checklist_widget.setVisible(False)
+
         actions_row = QHBoxLayout()
         actions_row.setSpacing(4)
         actions_row.addStretch()
@@ -101,6 +353,7 @@ class TaskEditor(QWidget):
         self.btn_date = EditorActionButton("📅")
         self.btn_tag = EditorActionButton("🏷")
         self.btn_checklist = EditorActionButton("☰")
+        self.btn_checklist.clicked.connect(self._toggle_checklist)
         self.btn_flag = EditorActionButton("🚩")
 
         actions_row.addWidget(self.btn_date)
@@ -110,7 +363,14 @@ class TaskEditor(QWidget):
 
         layout.addLayout(title_row)
         layout.addWidget(self.notes_input)
+        layout.addWidget(self.checklist_widget)
         layout.addLayout(actions_row)
+
+    def _toggle_checklist(self):
+        is_visible = not self.checklist_widget.isVisible()
+        self.checklist_widget.setVisible(is_visible)
+        if is_visible:
+            self.checklist_widget.focus_first_or_add()
 
     def _setup_shadow(self):
         shadow = QGraphicsDropShadowEffect(self)
@@ -121,18 +381,39 @@ class TaskEditor(QWidget):
         self.setGraphicsEffect(shadow)
 
     def eventFilter(self, obj, event: QEvent) -> bool:
-        if obj == self.notes_input and event.type() == QEvent.Type.KeyPress:
+        if event.type() == QEvent.Type.KeyPress:
             if isinstance(event, QKeyEvent):
-                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                    if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-                        return False
-                    self._on_submit()
+                key = event.key()
+                modifiers = event.modifiers()
+
+                if (
+                    key == Qt.Key.Key_C
+                    and modifiers & Qt.KeyboardModifier.ControlModifier
+                    and modifiers & Qt.KeyboardModifier.ShiftModifier
+                ):
+                    self._toggle_checklist()
                     return True
+
+                if obj == self.notes_input:
+                    if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+                            return False
+                        self._on_submit()
+                        return True
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == Qt.Key.Key_Escape:
+        key = event.key()
+        modifiers = event.modifiers()
+
+        if key == Qt.Key.Key_Escape:
             self._on_cancel()
+        elif (
+            key == Qt.Key.Key_C
+            and modifiers & Qt.KeyboardModifier.ControlModifier
+            and modifiers & Qt.KeyboardModifier.ShiftModifier
+        ):
+            self._toggle_checklist()
         else:
             super().keyPressEvent(event)
 
@@ -140,7 +421,8 @@ class TaskEditor(QWidget):
         title = self.title_input.text().strip()
         if title:
             notes = self.notes_input.toPlainText().strip()
-            self.submitted.emit(title, notes)
+            checklist = self.checklist_widget.get_checklist()
+            self.submitted.emit(title, notes, checklist)
 
     def _on_cancel(self):
         self.cancelled.emit()
@@ -148,10 +430,18 @@ class TaskEditor(QWidget):
     def set_task(self, task: TaskData):
         self.title_input.setText(task.title)
         self.notes_input.setPlainText(task.notes)
+        if task.checklist:
+            self.checklist_widget.set_checklist(task.checklist)
+            self.checklist_widget.setVisible(True)
+        else:
+            self.checklist_widget.set_checklist([])
+            self.checklist_widget.setVisible(False)
 
     def clear(self):
         self.title_input.clear()
         self.notes_input.clear()
+        self.checklist_widget.set_checklist([])
+        self.checklist_widget.setVisible(False)
 
     def focus_title(self):
         self.title_input.setFocus()
@@ -159,10 +449,11 @@ class TaskEditor(QWidget):
 
 
 class InlineTaskEditor(QWidget):
-    submitted = Signal(str, str)
+    submitted = Signal(str, str, list)
     cancelled = Signal()
     delete_requested = Signal()
     navigate = Signal(int)
+    size_changed = Signal(int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -184,6 +475,7 @@ class InlineTaskEditor(QWidget):
         self.title_input.setPlaceholderText("Task title")
         self.title_input.setObjectName("inlineEditorTitleInput")
         self.title_input.returnPressed.connect(self._on_submit)
+        self.title_input.installEventFilter(self)
 
         title_row.addWidget(self.checkbox)
         title_row.addWidget(self.title_input)
@@ -195,6 +487,9 @@ class InlineTaskEditor(QWidget):
         self.notes_input.setCursorWidth(2)
         self.notes_input.installEventFilter(self)
 
+        self.checklist_widget = ChecklistWidget()
+        self.checklist_widget.setVisible(False)
+
         actions_row = QHBoxLayout()
         actions_row.setSpacing(4)
         actions_row.addStretch()
@@ -202,6 +497,7 @@ class InlineTaskEditor(QWidget):
         self.btn_date = EditorActionButton("📅")
         self.btn_tag = EditorActionButton("🏷")
         self.btn_checklist = EditorActionButton("☰")
+        self.btn_checklist.clicked.connect(self._toggle_checklist)
         self.btn_flag = EditorActionButton("🚩")
 
         actions_row.addWidget(self.btn_date)
@@ -211,30 +507,60 @@ class InlineTaskEditor(QWidget):
 
         layout.addLayout(title_row)
         layout.addWidget(self.notes_input)
+        layout.addWidget(self.checklist_widget)
         layout.addLayout(actions_row)
 
+    def _toggle_checklist(self):
+        is_visible = not self.checklist_widget.isVisible()
+        self.checklist_widget.setVisible(is_visible)
+        height = 250 if is_visible else 140
+        self.size_changed.emit(height)
+        if is_visible:
+            self.checklist_widget.focus_first_or_add()
+
     def eventFilter(self, obj, event: QEvent) -> bool:
-        if obj == self.notes_input and event.type() == QEvent.Type.KeyPress:
+        if event.type() == QEvent.Type.KeyPress:
             if isinstance(event, QKeyEvent):
-                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                    if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-                        return False
-                    self._on_submit()
+                key = event.key()
+                modifiers = event.modifiers()
+
+                if (
+                    key == Qt.Key.Key_C
+                    and modifiers & Qt.KeyboardModifier.ControlModifier
+                    and modifiers & Qt.KeyboardModifier.ShiftModifier
+                ):
+                    self._toggle_checklist()
                     return True
-                if event.key() == Qt.Key.Key_Escape:
-                    self._on_cancel()
-                    return True
+
+                if obj == self.notes_input:
+                    if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+                            return False
+                        self._on_submit()
+                        return True
+                    if key == Qt.Key.Key_Escape:
+                        self._on_cancel()
+                        return True
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == Qt.Key.Key_Escape:
+        key = event.key()
+        modifiers = event.modifiers()
+
+        if key == Qt.Key.Key_Escape:
             self._on_cancel()
-        elif event.key() == Qt.Key.Key_Delete:
+        elif key == Qt.Key.Key_Delete:
             self.delete_requested.emit()
-        elif event.key() == Qt.Key.Key_Up:
+        elif key == Qt.Key.Key_Up:
             self.navigate.emit(-1)
-        elif event.key() == Qt.Key.Key_Down:
+        elif key == Qt.Key.Key_Down:
             self.navigate.emit(1)
+        elif (
+            key == Qt.Key.Key_C
+            and modifiers & Qt.KeyboardModifier.ControlModifier
+            and modifiers & Qt.KeyboardModifier.ShiftModifier
+        ):
+            self._toggle_checklist()
         else:
             super().keyPressEvent(event)
 
@@ -242,7 +568,8 @@ class InlineTaskEditor(QWidget):
         title = self.title_input.text().strip()
         if title:
             notes = self.notes_input.toPlainText().strip()
-            self.submitted.emit(title, notes)
+            checklist = self.checklist_widget.get_checklist()
+            self.submitted.emit(title, notes, checklist)
 
     def _on_cancel(self):
         self.cancelled.emit()
@@ -250,6 +577,12 @@ class InlineTaskEditor(QWidget):
     def set_task(self, task: TaskData):
         self.title_input.setText(task.title)
         self.notes_input.setPlainText(task.notes)
+        if task.checklist:
+            self.checklist_widget.set_checklist(task.checklist)
+            self.checklist_widget.setVisible(True)
+        else:
+            self.checklist_widget.set_checklist([])
+            self.checklist_widget.setVisible(False)
 
     def focus_title(self):
         self.title_input.setFocus()
@@ -334,8 +667,14 @@ class TaskListWidget(QListWidget):
                 self._cancel_edit()
         super().mousePressEvent(event)
 
-    def add_task(self, title: str, notes: str = "", position: int = -1):
-        task = TaskData(title, notes)
+    def add_task(
+        self,
+        title: str,
+        notes: str = "",
+        position: int = -1,
+        checklist: list[ChecklistItemData] | None = None,
+    ):
+        task = TaskData(title, notes, checklist)
         item = QListWidgetItem()
         task_widget = TaskItem(task)
         item.setSizeHint(QSize(0, 40))
@@ -367,12 +706,16 @@ class TaskListWidget(QListWidget):
         editor.cancelled.connect(self._cancel_edit)
         editor.delete_requested.connect(self._delete_selected_task)
         editor.navigate.connect(self._on_navigate)
+        editor.size_changed.connect(lambda h, i=item: i.setSizeHint(QSize(0, h)))
 
-        item.setSizeHint(QSize(0, 140))
+        height = 250 if task.checklist else 140
+        item.setSizeHint(QSize(0, height))
         self.setItemWidget(item, editor)
         editor.focus_title()
 
-    def _on_edit_submitted(self, title: str, notes: str):
+    def _on_edit_submitted(
+        self, title: str, notes: str, checklist: list[ChecklistItemData]
+    ):
         if self._editing_item is None or self._editing_task is None:
             return
 
@@ -382,6 +725,7 @@ class TaskListWidget(QListWidget):
         else:
             self._editing_task.title = title
             self._editing_task.notes = notes
+            self._editing_task.checklist = checklist
 
             task_widget = TaskItem(self._editing_task)
             self._editing_item.setSizeHint(QSize(0, 40))
@@ -562,8 +906,10 @@ class MainWindow(QMainWindow):
     def _hide_editor(self):
         self.task_editor.setVisible(False)
 
-    def _on_task_created(self, title: str, notes: str):
-        self.task_list.add_task(title, notes, position=0)
+    def _on_task_created(
+        self, title: str, notes: str, checklist: list[ChecklistItemData]
+    ):
+        self.task_list.add_task(title, notes, position=0, checklist=checklist)
         self.task_editor.clear()
         self._hide_editor()
 
@@ -719,6 +1065,69 @@ class MainWindow(QMainWindow):
             }
             #toolbarButton:pressed {
                 background-color: #4A4A4A;
+            }
+
+            #checklistWidget {
+                background: transparent;
+            }
+
+            #checklistItemWidget QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+                border-radius: 3px;
+                border: 1.5px solid #C0C0C0;
+                background-color: #FFFFFF;
+            }
+            #checklistItemWidget QCheckBox::indicator:hover {
+                border: 1.5px solid #4A90D9;
+            }
+            #checklistItemWidget QCheckBox::indicator:checked {
+                background-color: #4A90D9;
+                border: 1.5px solid #4A90D9;
+            }
+
+            #checklistItemInput {
+                border: none;
+                background-color: #F5F5F5;
+                border-radius: 4px;
+                font-size: 13px;
+                color: #333333;
+                padding: 4px 8px;
+            }
+            #checklistItemInput:focus {
+                background-color: #FFFFFF;
+                border: 1px solid #4A90D9;
+            }
+
+            #checklistDeleteBtn {
+                background: transparent;
+                border: none;
+                color: #999999;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            #checklistDeleteBtn:hover {
+                color: #CC6666;
+            }
+
+            #checklistAddBtn {
+                background: transparent;
+                border: none;
+                color: #4A90D9;
+                font-size: 13px;
+                text-align: left;
+                padding: 4px 8px;
+            }
+            #checklistAddBtn:hover {
+                color: #5A9FE8;
+                background-color: #F0F0F0;
+                border-radius: 4px;
+            }
+
+            #checklistIndicator {
+                color: #888888;
+                font-size: 12px;
+                margin-left: 8px;
             }
         """)
 
