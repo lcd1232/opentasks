@@ -9,4 +9,4 @@ tasks:
   run:
     desc: Run the OpenTasks application
     cmds:
-      - uv run python opentasks/app.py
+      - uv run python -m opentasks.app

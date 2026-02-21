@@ -7,7 +7,7 @@ Includes Things Cloud sync protocol parser for fetching and reconstructing task 
 
 | Action | Command |
 |---|---|
-| Run GUI | `uv run python opentasks/app.py` |
+| Run GUI | `uv run python -m opentasks.app` |
 | Run script | `uv run python3 <file>` |
 | Lint | `ruff check opentasks/ compare.py` |
 | Format check | `ruff format --check opentasks/ compare.py` |
@@ -17,7 +17,13 @@ Includes Things Cloud sync protocol parser for fetching and reconstructing task 
 
 ```
 opentasks/
-  app.py              # PySide6 GUI application (main entry point)
+  app.py              # MainWindow + entry point
+  models.py           # Data classes (ChecklistItemData, TaskData)
+  buttons.py          # EditorActionButton, ToolbarButton
+  styles.py           # STYLES constant (Qt stylesheet)
+  checklist.py        # ChecklistItemWidget, ChecklistWidget
+  task_widgets.py     # TaskItem, TaskEditor, InlineTaskEditor
+  task_list.py        # TaskListWidget
   things/
     cloud.py          # Things Cloud API client (auth, history fetch)
     models.py         # Typed dataclasses for all 6 entity types
