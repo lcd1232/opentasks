@@ -190,7 +190,7 @@ class TaskEditor(QWidget):
         layout.addLayout(actions_row)
 
     def _toggle_checklist(self):
-        is_visible = not self.checklist_widget.isVisible()
+        is_visible = self.checklist_widget.isHidden()
         self.checklist_widget.setVisible(is_visible)
         if is_visible:
             self.checklist_widget.focus_first_or_add()
@@ -336,14 +336,14 @@ class InlineTaskEditor(QWidget):
         layout.addLayout(actions_row)
 
     def _toggle_checklist(self):
-        is_visible = not self.checklist_widget.isVisible()
+        is_visible = self.checklist_widget.isHidden()
         self.checklist_widget.setVisible(is_visible)
         self._emit_size_changed()
         if is_visible:
             self.checklist_widget.focus_first_or_add()
 
     def _on_checklist_changed(self):
-        if self.checklist_widget.isVisible():
+        if not self.checklist_widget.isHidden():
             self._emit_size_changed()
 
     def _adjust_notes_height(self):
@@ -355,7 +355,7 @@ class InlineTaskEditor(QWidget):
     def _emit_size_changed(self):
         notes_height = self.notes_input.height()
         base_height = 90 + notes_height
-        if self.checklist_widget.isVisible():
+        if not self.checklist_widget.isHidden():
             checklist_height = self.checklist_widget.required_height()
             self.size_changed.emit(base_height + checklist_height)
         else:
@@ -485,7 +485,7 @@ class ModalOverlay(QWidget):
         self._editor.move(x, y)
 
     def mousePressEvent(self, event):
-        if not self._editor.geometry().contains(event.pos()):
+        if not self._editor.geometry().contains(event.position().toPoint()):
             self.closed.emit()
         else:
             super().mousePressEvent(event)
