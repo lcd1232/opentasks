@@ -271,6 +271,7 @@ class InlineTaskEditor(QWidget):
     delete_requested = Signal()
     navigate = Signal(int)
     size_changed = Signal(int)
+    completed = Signal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -286,8 +287,9 @@ class InlineTaskEditor(QWidget):
         title_row.setSpacing(16)
 
         self.checkbox = QCheckBox()
-        self.checkbox.setEnabled(False)
+        self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.checkbox.setFixedSize(18, 18)
+        self.checkbox.stateChanged.connect(self._on_check_changed)
 
         self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("Task title")
@@ -405,6 +407,16 @@ class InlineTaskEditor(QWidget):
         else:
             super().keyPressEvent(event)
 
+    def _on_check_changed(self, state: int):
+        if state == Qt.CheckState.Checked.value:
+            # Save current edits to the task before completing
+            title = self.title_input.text().strip()
+            if title:
+                self._task.title = title
+            self._task.notes = self.notes_input.toPlainText().strip()
+            self._task.checklist = self.checklist_widget.get_checklist()
+            self.completed.emit()
+
     def _on_submit(self):
         title = self.title_input.text().strip()
         if title:
@@ -416,6 +428,7 @@ class InlineTaskEditor(QWidget):
         self.cancelled.emit()
 
     def set_task(self, task: TaskData):
+        self._task = task
         self.title_input.setText(task.title)
         self.notes_input.setPlainText(task.notes)
         if task.checklist:

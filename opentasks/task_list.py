@@ -154,6 +154,23 @@ class TaskListWidget(QListWidget):
         super().resizeEvent(event)
         self._empty_label.setGeometry(self.rect())
 
+    def _on_editor_completed(self, item: QListWidgetItem):
+        if self._editing_item is None or self._editing_task is None:
+            return
+        # Close editor and show task row
+        task_widget = TaskItem(self._editing_task)
+        task_widget.check_toggled.connect(
+            lambda checked, i=item: self._on_task_checked(i, checked)
+        )
+        item.setSizeHint(QSize(0, task_widget.size_hint_height()))
+        self.setItemWidget(item, task_widget)
+        self._editing_item = None
+        self._editing_task = None
+        self._is_new_task = False
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        # Now trigger the check visually
+        task_widget.checkbox.setChecked(True)
+
     def _on_task_checked(self, item: QListWidgetItem, checked: bool):
         if checked:
             QTimer.singleShot(800, lambda: self._remove_completed(item))
@@ -207,6 +224,7 @@ class TaskListWidget(QListWidget):
         editor.delete_requested.connect(self._delete_selected_task)
         editor.navigate.connect(self._on_navigate)
         editor.size_changed.connect(lambda h, i=item: i.setSizeHint(QSize(0, h)))
+        editor.completed.connect(lambda i=item: self._on_editor_completed(i))
 
         base_height = 140
         if task.checklist:

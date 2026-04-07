@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeySequence, QMouseEvent, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -198,6 +198,7 @@ class MainWindow(QMainWindow):
 
         content_layout.addWidget(self.task_list)
 
+        self.content_area.installEventFilter(self)
         parent_layout.addWidget(self.content_area)
 
     def _setup_bottom_toolbar(self, parent_layout: QVBoxLayout):
@@ -273,6 +274,18 @@ class MainWindow(QMainWindow):
             ][i]
             color = "#FFFFFF" if i == row else "#D1D1D1"
             self.nav_list.item(i).setIcon(icon_qicon(icon_name, 16, color))
+
+    def eventFilter(self, obj, event):
+        if obj == self.content_area and event.type() == QEvent.Type.MouseButtonPress:
+            if isinstance(event, QMouseEvent):
+                # Check if click is outside the task list
+                click_pos = event.position().toPoint()
+                task_list_rect = self.task_list.geometry()
+                if not task_list_rect.contains(click_pos):
+                    self.task_list._cancel_edit()
+                    self.task_list.clearSelection()
+                    self.task_list.setCurrentRow(-1)
+        return super().eventFilter(obj, event)
 
     def _apply_styles(self):
         self.setStyleSheet(STYLES)
