@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtCore import QEvent, QPoint, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QCheckBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -15,16 +15,53 @@ from PySide6.QtWidgets import (
 from .models import ChecklistItemData
 
 
-class ChecklistItemWidget(QWidget):
+class GripHandle(QLabel):
+    """Draggable grip handle that emits move signals based on vertical drag."""
+
+    move_requested = Signal(int)
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__("≡", parent)
+        self.setObjectName("checklistGripBtn")
+        self.setFixedSize(20, 20)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMouseTracking(True)
+        self._drag_start: QPoint | None = None
+        self._row_height = 32
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start = event.globalPosition().toPoint()
+            self.grabMouse()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        if self._drag_start is not None:
+            delta = event.globalPosition().toPoint().y() - self._drag_start.y()
+            if abs(delta) >= self._row_height:
+                direction = 1 if delta > 0 else -1
+                self.move_requested.emit(direction)
+                self._drag_start = event.globalPosition().toPoint()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        self._drag_start = None
+        self.releaseMouse()
+        super().mouseReleaseEvent(event)
+
+
+class ChecklistItemWidget(QFrame):
     delete_requested = Signal()
     move_requested = Signal(int)
     focus_next = Signal()
     focus_previous = Signal()
+    enter_pressed = Signal()
 
     def __init__(self, item: ChecklistItemData, parent: QWidget | None = None):
         super().__init__(parent)
         self.item = item
         self.setObjectName("checklistItemWidget")
+        self.setFrameShape(QFrame.Shape.NoFrame)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -46,11 +83,8 @@ class ChecklistItemWidget(QWidget):
         self.title_input.installEventFilter(self)
         self.title_input.setMinimumHeight(24)
 
-        self.grip_label = QLabel("≡")
-        self.grip_label.setObjectName("checklistGripBtn")
-        self.grip_label.setFixedSize(20, 20)
-        self.grip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.grip_label.setCursor(Qt.CursorShape.ArrowCursor)
+        self.grip_label = GripHandle()
+        self.grip_label.move_requested.connect(self.move_requested.emit)
         self.grip_label.setVisible(False)
 
         layout.addWidget(self.checkbox)
@@ -97,7 +131,7 @@ class ChecklistItemWidget(QWidget):
                 modifiers = event.modifiers()
 
                 if key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
-                    self.focus_next.emit()
+                    self.enter_pressed.emit()
                     return True
                 if key == Qt.Key.Key_Delete or key == Qt.Key.Key_Backspace:
                     if not self.title_input.text():
@@ -136,13 +170,25 @@ class ChecklistItemWidget(QWidget):
 
     def _on_focus_in(self):
         self.grip_label.setVisible(True)
+        self.setStyleSheet(
+            "ChecklistItemWidget {"
+            "  background-color: rgba(74, 144, 217, 0.08);"
+            "  border-radius: 4px;"
+            "}"
+        )
 
     def _on_focus_out(self):
         self.grip_label.setVisible(False)
+        self.setStyleSheet("")
 
-    def focus_input(self):
+    def focus_input(self, cursor_pos: int = -1):
         self.title_input.setFocus()
-        self.title_input.setCursorPosition(len(self.title_input.text()))
+        if cursor_pos < 0:
+            self.title_input.setCursorPosition(len(self.title_input.text()))
+        else:
+            self.title_input.setCursorPosition(
+                min(cursor_pos, len(self.title_input.text()))
+            )
 
 
 class ChecklistWidget(QWidget):
@@ -165,14 +211,7 @@ class ChecklistWidget(QWidget):
         self._items_layout.setContentsMargins(0, 0, 0, 0)
         self._items_layout.setSpacing(0)
 
-        self._add_btn = QPushButton("+ Add checklist item")
-        self._add_btn.setObjectName("checklistAddBtn")
-        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._add_btn.clicked.connect(self._add_new_item)
-        self._add_btn.setFixedHeight(28)
-
         self._layout.addWidget(self._items_container)
-        self._layout.addWidget(self._add_btn)
 
     def _add_new_item(self, focus: bool = True):
         item_data = ChecklistItemData("")
@@ -186,6 +225,7 @@ class ChecklistWidget(QWidget):
         widget.move_requested.connect(lambda d, w=widget: self._move_item(w, d))
         widget.focus_next.connect(lambda w=widget: self._focus_next(w))
         widget.focus_previous.connect(lambda w=widget: self._focus_previous(w))
+        widget.enter_pressed.connect(lambda w=widget: self._on_enter(w))
 
         if index < 0:
             self._items_layout.addWidget(widget)
@@ -221,17 +261,26 @@ class ChecklistWidget(QWidget):
             self._items_layout.insertWidget(new_idx, widget)
             widget.focus_input()
 
-    def _focus_next(self, widget: ChecklistItemWidget):
+    def _on_enter(self, widget: ChecklistItemWidget):
         idx = self._items.index(widget)
         if idx < len(self._items) - 1:
             self._items[idx + 1].focus_input()
         else:
             self._add_new_item()
 
+    def _focus_next(self, widget: ChecklistItemWidget):
+        idx = self._items.index(widget)
+        pos = widget.title_input.cursorPosition()
+        if idx < len(self._items) - 1:
+            self._items[idx + 1].focus_input(pos)
+        else:
+            widget.focus_input()
+
     def _focus_previous(self, widget: ChecklistItemWidget):
         idx = self._items.index(widget)
+        pos = widget.title_input.cursorPosition()
         if idx > 0:
-            self._items[idx - 1].focus_input()
+            self._items[idx - 1].focus_input(pos)
 
     def set_checklist(self, items: list[ChecklistItemData]):
         for widget in self._items[:]:
@@ -256,5 +305,5 @@ class ChecklistWidget(QWidget):
 
     def required_height(self) -> int:
         if not self._items:
-            return 28
-        return len(self._items) * 32 + 28 + 8
+            return 8
+        return len(self._items) * 32 + 8

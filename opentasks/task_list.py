@@ -198,6 +198,7 @@ class TaskListWidget(QListWidget):
 
         self._editing_item = item
         self._editing_task = task
+        self.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
 
         editor = InlineTaskEditor()
         editor.set_task(task)
@@ -238,6 +239,7 @@ class TaskListWidget(QListWidget):
         self._editing_item = None
         self._editing_task = None
         self._is_new_task = False
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setFocus()
 
     def _cancel_edit(self):
@@ -255,6 +257,7 @@ class TaskListWidget(QListWidget):
         self._editing_item = None
         self._editing_task = None
         self._is_new_task = False
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setFocus()
 
     def _on_navigate(self, direction: int):

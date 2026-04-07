@@ -204,8 +204,8 @@ STYLES = """
 
     #checklistGripBtn {
         background: transparent;
-        color: #CCCCCC;
-        font-size: 16px;
+        color: #AAAAAA;
+        font-size: 18px;
     }
 
     #checklistDeleteBtn {
