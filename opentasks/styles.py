@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+import importlib.resources as pkg_resources
+from pathlib import Path
+
+
+def _res(filename: str) -> str:
+    path = Path(str(pkg_resources.files("opentasks") / "resources" / filename))
+    return str(path).replace("\\", "/")
+
+
 STYLES = """
     * {
         font-family: ".AppleSystemUIFont", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -120,6 +129,7 @@ STYLES = """
     QCheckBox::indicator:checked {
         background-color: #4A90D9;
         border: 1px solid #4A90D9;
+        image: url(%%CHECKMARK%%);
     }
     QCheckBox::indicator:disabled {
         border: 1px solid #D0D0D0;
@@ -255,4 +265,4 @@ STYLES = """
         font-size: 11px;
         color: #E8833A;
     }
-"""
+""".replace("%%CHECKMARK%%", _res("checkmark.svg"))
