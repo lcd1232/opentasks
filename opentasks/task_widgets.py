@@ -233,9 +233,11 @@ class TaskEditor(QWidget):
         if task.checklist:
             self.checklist_widget.set_checklist(task.checklist)
             self.checklist_widget.setVisible(True)
+            self.btn_checklist.setVisible(False)
         else:
             self.checklist_widget.set_checklist([])
             self.checklist_widget.setVisible(False)
+            self.btn_checklist.setVisible(True)
 
     def clear(self):
         self.title_input.clear()
@@ -262,14 +264,15 @@ class InlineTaskEditor(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(8, 10, 8, 8)
         layout.setSpacing(4)
 
         title_row = QHBoxLayout()
-        title_row.setSpacing(8)
+        title_row.setSpacing(16)
 
         self.checkbox = QCheckBox()
         self.checkbox.setEnabled(False)
+        self.checkbox.setFixedSize(18, 18)
 
         self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("Task title")
@@ -394,9 +397,11 @@ class InlineTaskEditor(QWidget):
         if task.checklist:
             self.checklist_widget.set_checklist(task.checklist)
             self.checklist_widget.setVisible(True)
+            self.btn_checklist.setVisible(False)
         else:
             self.checklist_widget.set_checklist([])
             self.checklist_widget.setVisible(False)
+            self.btn_checklist.setVisible(True)
 
     def focus_title(self):
         self.title_input.setFocus()
