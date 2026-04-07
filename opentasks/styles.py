@@ -2,7 +2,7 @@ from __future__ import annotations
 
 STYLES = """
     * {
-        font-family: "SF Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-family: ".AppleSystemUIFont", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
     #sidebar {
@@ -31,7 +31,7 @@ STYLES = """
     }
 
     #contentArea {
-        background-color: #FAFAFA;
+        background-color: #FFFFFF;
     }
 
     #headerLabel {
@@ -40,10 +40,17 @@ STYLES = """
         color: #222222;
     }
 
+    #headerIcon {
+        font-size: 24px;
+    }
+
     #taskEditor {
         background-color: #FFFFFF;
-        border-radius: 10px;
-        margin-bottom: 16px;
+        border-radius: 12px;
+    }
+
+    #modalOverlay {
+        background-color: rgba(0, 0, 0, 0.3);
     }
 
     #inlineTaskEditor {
@@ -90,20 +97,20 @@ STYLES = """
     #taskList::item {
         background: transparent;
         border: none;
-        border-radius: 6px;
-        margin-bottom: 2px;
+        border-bottom: 1px solid #F0F0F0;
+        margin-bottom: 0px;
     }
     #taskList::item:hover {
-        background-color: #F0F0F0;
+        background-color: #F8F8F8;
     }
     #taskList::item:selected {
-        background-color: #E8E8E8;
+        background-color: #EDF4FC;
     }
 
     QCheckBox::indicator {
-        width: 16px;
-        height: 16px;
-        border-radius: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
         border: 1.5px solid #C0C0C0;
         background-color: transparent;
     }
@@ -162,9 +169,9 @@ STYLES = """
     }
 
     #checklistItemWidget QCheckBox::indicator {
-        width: 16px;
-        height: 16px;
-        border-radius: 8px;
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
         border: 2px solid #4A90D9;
         background-color: transparent;
     }
@@ -214,5 +221,38 @@ STYLES = """
         color: #888888;
         font-size: 12px;
         margin-left: 8px;
+    }
+
+    #taskTitle {
+        font-size: 15px;
+        color: #333333;
+    }
+
+    #taskNotes {
+        font-size: 12px;
+        color: #999999;
+    }
+
+    #taskTag {
+        font-size: 11px;
+        color: #4A90D9;
+        background-color: rgba(74, 144, 217, 0.1);
+        border-radius: 3px;
+        padding: 1px 6px;
+    }
+
+    #taskDueDate {
+        font-size: 11px;
+        color: #888888;
+    }
+
+    #taskProject {
+        font-size: 11px;
+        color: #AAAAAA;
+    }
+
+    #taskFlag {
+        font-size: 11px;
+        color: #E8833A;
     }
 """

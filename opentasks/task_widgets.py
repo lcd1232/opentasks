@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QColor, QKeyEvent, QPainter
 from PySide6.QtWidgets import (
     QCheckBox,
     QGraphicsDropShadowEffect,
@@ -15,6 +15,14 @@ from PySide6.QtWidgets import (
 
 from .buttons import EditorActionButton
 from .checklist import ChecklistWidget
+from .icons import (
+    ICON_CALENDAR,
+    ICON_FLAG,
+    ICON_LIST_CHECKS,
+    ICON_TAG,
+    icon_pixmap,
+    icon_qicon,
+)
 from .models import TaskData
 
 
@@ -24,35 +32,84 @@ class TaskItem(QWidget):
         self.task = task
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(8, 10, 8, 10)
+        layout.setSpacing(0)
 
         self.checkbox = QCheckBox()
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        self.label = QLabel(task.title)
-        self.label.setStyleSheet("font-size: 15px; color: #333333;")
-
-        self.checklist_indicator = QLabel()
-        self.checklist_indicator.setObjectName("checklistIndicator")
-        self._update_checklist_indicator()
-
+        self.checkbox.setFixedSize(22, 22)
         layout.addWidget(self.checkbox)
-        layout.addWidget(self.label)
-        layout.addWidget(self.checklist_indicator)
-        layout.addStretch()
+        layout.addSpacing(12)
 
-    def _update_checklist_indicator(self):
-        if self.task.checklist:
-            completed = sum(1 for item in self.task.checklist if item.completed)
-            total = len(self.task.checklist)
-            self.checklist_indicator.setText(f"☰ {completed}/{total}")
-            self.checklist_indicator.setVisible(True)
-        else:
-            self.checklist_indicator.setVisible(False)
+        center = QVBoxLayout()
+        center.setContentsMargins(0, 0, 0, 0)
+        center.setSpacing(2)
+
+        self.title_label = QLabel(task.title)
+        self.title_label.setObjectName("taskTitle")
+        center.addWidget(self.title_label)
+
+        if task.notes:
+            self.notes_label = QLabel(task.notes)
+            self.notes_label.setObjectName("taskNotes")
+            self.notes_label.setMaximumWidth(400)
+            self.notes_label.setWordWrap(False)
+            center.addWidget(self.notes_label)
+
+        if task.has_metadata():
+            metadata_row = QHBoxLayout()
+            metadata_row.setContentsMargins(0, 2, 0, 0)
+            metadata_row.setSpacing(8)
+
+            for tag in task.tags:
+                tag_label = QLabel(tag)
+                tag_label.setObjectName("taskTag")
+                metadata_row.addWidget(tag_label)
+
+            date_str = task.due_date_display()
+            if date_str:
+                date_icon = QLabel()
+                date_icon.setPixmap(icon_pixmap(ICON_CALENDAR, 12, "#888888"))
+                date_icon.setFixedSize(14, 14)
+                date_label = QLabel(date_str)
+                date_label.setObjectName("taskDueDate")
+                metadata_row.addWidget(date_icon)
+                metadata_row.addWidget(date_label)
+
+            if task.project:
+                project_label = QLabel(task.project)
+                project_label.setObjectName("taskProject")
+                metadata_row.addWidget(project_label)
+
+            if task.flagged:
+                flag_label = QLabel()
+                flag_label.setPixmap(icon_pixmap(ICON_FLAG, 12, "#E8833A"))
+                flag_label.setFixedSize(14, 14)
+                metadata_row.addWidget(flag_label)
+
+            metadata_row.addStretch()
+            center.addLayout(metadata_row)
+
+        layout.addLayout(center, 1)
+
+        if task.checklist:
+            completed = sum(1 for item in task.checklist if item.completed)
+            total = len(task.checklist)
+            self.checklist_indicator = QLabel(f"☰ {completed}/{total}")
+            self.checklist_indicator.setObjectName("checklistIndicator")
+            layout.addWidget(self.checklist_indicator)
 
     def update_from_task(self):
-        self.label.setText(self.task.title)
-        self._update_checklist_indicator()
+        self.title_label.setText(self.task.title)
+
+    def size_hint_height(self) -> int:
+        """Return the preferred height based on content."""
+        height = 42
+        if self.task.notes:
+            height += 16
+        if self.task.has_metadata():
+            height += 18
+        return height
 
 
 class TaskEditor(QWidget):
@@ -63,7 +120,6 @@ class TaskEditor(QWidget):
         super().__init__(parent)
         self.setObjectName("taskEditor")
         self._setup_ui()
-        self._setup_shadow()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -99,11 +155,13 @@ class TaskEditor(QWidget):
         actions_row.setSpacing(4)
         actions_row.addStretch()
 
-        self.btn_date = EditorActionButton("📅")
-        self.btn_tag = EditorActionButton("🏷")
-        self.btn_checklist = EditorActionButton("☰")
+        self.btn_date = EditorActionButton(icon_qicon(ICON_CALENDAR, 16, "#888888"))
+        self.btn_tag = EditorActionButton(icon_qicon(ICON_TAG, 16, "#888888"))
+        self.btn_checklist = EditorActionButton(
+            icon_qicon(ICON_LIST_CHECKS, 16, "#888888")
+        )
         self.btn_checklist.clicked.connect(self._toggle_checklist)
-        self.btn_flag = EditorActionButton("🚩")
+        self.btn_flag = EditorActionButton(icon_qicon(ICON_FLAG, 16, "#888888"))
 
         actions_row.addWidget(self.btn_date)
         actions_row.addWidget(self.btn_tag)
@@ -120,14 +178,6 @@ class TaskEditor(QWidget):
         self.checklist_widget.setVisible(is_visible)
         if is_visible:
             self.checklist_widget.focus_first_or_add()
-
-    def _setup_shadow(self):
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(20)
-        shadow.setXOffset(0)
-        shadow.setYOffset(4)
-        shadow.setColor(Qt.GlobalColor.gray)
-        self.setGraphicsEffect(shadow)
 
     def eventFilter(self, obj, event: QEvent) -> bool:
         if event.type() == QEvent.Type.KeyPress:
@@ -244,11 +294,13 @@ class InlineTaskEditor(QWidget):
         actions_row.setSpacing(4)
         actions_row.addStretch()
 
-        self.btn_date = EditorActionButton("📅")
-        self.btn_tag = EditorActionButton("🏷")
-        self.btn_checklist = EditorActionButton("☰")
+        self.btn_date = EditorActionButton(icon_qicon(ICON_CALENDAR, 16, "#888888"))
+        self.btn_tag = EditorActionButton(icon_qicon(ICON_TAG, 16, "#888888"))
+        self.btn_checklist = EditorActionButton(
+            icon_qicon(ICON_LIST_CHECKS, 16, "#888888")
+        )
         self.btn_checklist.clicked.connect(self._toggle_checklist)
-        self.btn_flag = EditorActionButton("🚩")
+        self.btn_flag = EditorActionButton(icon_qicon(ICON_FLAG, 16, "#888888"))
 
         actions_row.addWidget(self.btn_date)
         actions_row.addWidget(self.btn_tag)
@@ -348,3 +400,54 @@ class InlineTaskEditor(QWidget):
     def focus_title(self):
         self.title_input.setFocus()
         self.title_input.setCursorPosition(len(self.title_input.text()))
+
+
+class ModalOverlay(QWidget):
+    """Semi-transparent backdrop that hosts the TaskEditor as a centered modal."""
+
+    closed = Signal()
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+        self.setObjectName("modalOverlay")
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+
+        self._editor = TaskEditor()
+        self._editor.setParent(self)
+        self._editor.setFixedWidth(500)
+
+        shadow = QGraphicsDropShadowEffect(self._editor)
+        shadow.setBlurRadius(30)
+        shadow.setXOffset(0)
+        shadow.setYOffset(8)
+        shadow.setColor(Qt.GlobalColor.gray)
+        self._editor.setGraphicsEffect(shadow)
+
+    @property
+    def editor(self) -> TaskEditor:
+        return self._editor
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._position_editor()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._position_editor()
+
+    def _position_editor(self):
+        editor_height = self._editor.sizeHint().height()
+        x = (self.width() - self._editor.width()) // 2
+        y = max(80, (self.height() - editor_height) // 3)
+        self._editor.move(x, y)
+
+    def mousePressEvent(self, event):
+        if not self._editor.geometry().contains(event.pos()):
+            self.closed.emit()
+        else:
+            super().mousePressEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 77))
+        painter.end()

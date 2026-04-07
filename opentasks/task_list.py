@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem
@@ -92,11 +94,23 @@ class TaskListWidget(QListWidget):
         notes: str = "",
         position: int = -1,
         checklist: list[ChecklistItemData] | None = None,
+        tags: list[str] | None = None,
+        due_date: date | None = None,
+        project: str | None = None,
+        flagged: bool = False,
     ):
-        task = TaskData(title, notes, checklist)
+        task = TaskData(
+            title,
+            notes,
+            checklist=checklist,
+            tags=tags,
+            due_date=due_date,
+            project=project,
+            flagged=flagged,
+        )
         item = QListWidgetItem()
         task_widget = TaskItem(task)
-        item.setSizeHint(QSize(0, 40))
+        item.setSizeHint(QSize(0, task_widget.size_hint_height()))
         item.setData(Qt.ItemDataRole.UserRole, task)
         if position < 0:
             self.addItem(item)
@@ -152,7 +166,7 @@ class TaskListWidget(QListWidget):
             self._editing_task.checklist = checklist
 
             task_widget = TaskItem(self._editing_task)
-            self._editing_item.setSizeHint(QSize(0, 40))
+            self._editing_item.setSizeHint(QSize(0, task_widget.size_hint_height()))
             self.setItemWidget(self._editing_item, task_widget)
 
         self._editing_item = None
@@ -169,7 +183,7 @@ class TaskListWidget(QListWidget):
             self.takeItem(row)
         else:
             task_widget = TaskItem(self._editing_task)
-            self._editing_item.setSizeHint(QSize(0, 40))
+            self._editing_item.setSizeHint(QSize(0, task_widget.size_hint_height()))
             self.setItemWidget(self._editing_item, task_widget)
 
         self._editing_item = None
