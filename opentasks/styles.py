@@ -108,21 +108,21 @@ STYLES = """
     }
 
     QCheckBox::indicator {
-        width: 22px;
-        height: 22px;
-        border-radius: 11px;
-        border: 1.5px solid #C0C0C0;
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid #C0C0C0;
         background-color: transparent;
     }
     QCheckBox::indicator:hover {
-        border: 1.5px solid #4A90D9;
+        border: 1px solid #4A90D9;
     }
     QCheckBox::indicator:checked {
         background-color: #4A90D9;
-        border: 1.5px solid #4A90D9;
+        border: 1px solid #4A90D9;
     }
     QCheckBox::indicator:disabled {
-        border: 1.5px solid #D0D0D0;
+        border: 1px solid #D0D0D0;
     }
 
     #bottomToolbar {
@@ -169,19 +169,19 @@ STYLES = """
     }
 
     #checklistItemWidget QCheckBox::indicator {
-        width: 18px;
-        height: 18px;
-        border-radius: 9px;
-        border: 2px solid #4A90D9;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        border: 1.5px solid #4A90D9;
         background-color: transparent;
     }
     #checklistItemWidget QCheckBox::indicator:hover {
-        border: 2px solid #5A9FE8;
+        border: 1.5px solid #5A9FE8;
         background-color: rgba(74, 144, 217, 0.1);
     }
     #checklistItemWidget QCheckBox::indicator:checked {
         background-color: #4A90D9;
-        border: 2px solid #4A90D9;
+        border: 1.5px solid #4A90D9;
     }
 
     #checklistItemInput {

@@ -34,12 +34,13 @@ class TaskItem(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 10, 8, 10)
         layout.setSpacing(0)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.checkbox = QCheckBox()
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.checkbox.setFixedSize(22, 22)
-        layout.addWidget(self.checkbox)
-        layout.addSpacing(12)
+        self.checkbox.setFixedSize(18, 18)
+        layout.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addSpacing(16)
 
         center = QVBoxLayout()
         center.setContentsMargins(0, 0, 0, 0)

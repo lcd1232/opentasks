@@ -103,27 +103,8 @@ class MainWindow(QMainWindow):
         ]
 
         for icon_name, text, is_active in nav_items:
-            item = QListWidgetItem()
-            row_widget = QWidget()
-            row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(12, 8, 12, 8)
-            row_layout.setSpacing(10)
-
-            icon_label = QLabel()
-            icon_label.setPixmap(icon_pixmap(icon_name, 16, "#D1D1D1"))
-            icon_label.setFixedWidth(20)
-            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            text_label = QLabel(text)
-            text_label.setStyleSheet("color: #D1D1D1; font-size: 14px;")
-
-            row_layout.addWidget(icon_label)
-            row_layout.addWidget(text_label)
-            row_layout.addStretch()
-
-            item.setSizeHint(row_widget.sizeHint())
+            item = QListWidgetItem(icon_qicon(icon_name, 16, "#D1D1D1"), text)
             self.nav_list.addItem(item)
-            self.nav_list.setItemWidget(item, row_widget)
             if is_active:
                 self.nav_list.setCurrentItem(item)
 
@@ -135,27 +116,9 @@ class MainWindow(QMainWindow):
         self.logbook_list.setFixedHeight(40)
         self.logbook_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
-        logbook_item = QListWidgetItem()
-        logbook_widget = QWidget()
-        logbook_layout = QHBoxLayout(logbook_widget)
-        logbook_layout.setContentsMargins(12, 8, 12, 8)
-        logbook_layout.setSpacing(10)
-
-        logbook_icon = QLabel()
-        logbook_icon.setPixmap(icon_pixmap(ICON_BOOK_OPEN, 16, "#D1D1D1"))
-        logbook_icon.setFixedWidth(20)
-        logbook_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        logbook_text = QLabel("Logbook")
-        logbook_text.setStyleSheet("color: #D1D1D1; font-size: 14px;")
-
-        logbook_layout.addWidget(logbook_icon)
-        logbook_layout.addWidget(logbook_text)
-        logbook_layout.addStretch()
-
-        logbook_item.setSizeHint(logbook_widget.sizeHint())
-        self.logbook_list.addItem(logbook_item)
-        self.logbook_list.setItemWidget(logbook_item, logbook_widget)
+        self.logbook_list.addItem(
+            QListWidgetItem(icon_qicon(ICON_BOOK_OPEN, 16, "#D1D1D1"), "Logbook")
+        )
 
         sidebar_layout.addWidget(self.logbook_list)
         parent_layout.addWidget(self.sidebar)
