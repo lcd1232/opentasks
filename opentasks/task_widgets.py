@@ -27,6 +27,8 @@ from .models import TaskData
 
 
 class TaskItem(QWidget):
+    check_toggled = Signal(bool)
+
     def __init__(self, task: TaskData):
         super().__init__()
         self.task = task
@@ -39,6 +41,7 @@ class TaskItem(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.checkbox.setFixedSize(18, 18)
+        self.checkbox.stateChanged.connect(self._on_check_changed)
         layout.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
         layout.addSpacing(16)
 
@@ -99,6 +102,18 @@ class TaskItem(QWidget):
             self.checklist_indicator = QLabel(f"☰ {completed}/{total}")
             self.checklist_indicator.setObjectName("checklistIndicator")
             layout.addWidget(self.checklist_indicator)
+
+    def _on_check_changed(self, state: int):
+        checked = state == Qt.CheckState.Checked.value
+        self.check_toggled.emit(checked)
+        if checked:
+            self.setStyleSheet("QWidget { opacity: 0.4; }")
+            self.title_label.setStyleSheet(
+                "font-size: 15px; color: #999999; text-decoration: line-through;"
+            )
+        else:
+            self.setStyleSheet("")
+            self.title_label.setStyleSheet("")
 
     def update_from_task(self):
         self.title_label.setText(self.task.title)
@@ -286,9 +301,11 @@ class InlineTaskEditor(QWidget):
         self.notes_input = QTextEdit()
         self.notes_input.setPlaceholderText("Notes")
         self.notes_input.setObjectName("inlineEditorNotesInput")
-        self.notes_input.setFixedHeight(50)
+        self.notes_input.setMinimumHeight(30)
+        self.notes_input.setMaximumHeight(200)
         self.notes_input.setCursorWidth(2)
         self.notes_input.installEventFilter(self)
+        self.notes_input.document().contentsChanged.connect(self._adjust_notes_height)
 
         self.checklist_widget = ChecklistWidget()
         self.checklist_widget.setVisible(False)
@@ -327,8 +344,15 @@ class InlineTaskEditor(QWidget):
         if self.checklist_widget.isVisible():
             self._emit_size_changed()
 
+    def _adjust_notes_height(self):
+        doc_height = int(self.notes_input.document().size().height()) + 10
+        new_height = max(30, min(200, doc_height))
+        self.notes_input.setFixedHeight(new_height)
+        self._emit_size_changed()
+
     def _emit_size_changed(self):
-        base_height = 140
+        notes_height = self.notes_input.height()
+        base_height = 90 + notes_height
         if self.checklist_widget.isVisible():
             checklist_height = self.checklist_widget.required_height()
             self.size_changed.emit(base_height + checklist_height)

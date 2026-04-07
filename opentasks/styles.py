@@ -202,6 +202,12 @@ STYLES = """
         padding: 4px 0px;
     }
 
+    #checklistGripBtn {
+        background: transparent;
+        color: #CCCCCC;
+        font-size: 16px;
+    }
+
     #checklistDeleteBtn {
         background: transparent;
         border: none;

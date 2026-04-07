@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+)
 
 from .models import ChecklistItemData, TaskData
 from .task_widgets import InlineTaskEditor, TaskItem
@@ -23,6 +28,18 @@ class TaskListWidget(QListWidget):
         self._editing_item: QListWidgetItem | None = None
         self._editing_task: TaskData | None = None
         self._is_new_task: bool = False
+        self._undo_stack: list[tuple[int, TaskData]] = []
+
+        self._empty_label = QLabel("No to-dos here")
+        self._empty_label.setStyleSheet(
+            "color: #BBBBBB; font-size: 16px; padding-top: 40px;"
+        )
+        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_label.setParent(self)
+        self._empty_label.setVisible(False)
+
+        self.model().rowsInserted.connect(self._update_empty_state)
+        self.model().rowsRemoved.connect(self._update_empty_state)
 
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.itemClicked.connect(self._on_item_clicked)
@@ -51,6 +68,11 @@ class TaskListWidget(QListWidget):
             and event.modifiers() & Qt.KeyboardModifier.ControlModifier
         ):
             self._create_task_below_current()
+        elif (
+            event.key() == Qt.Key.Key_Z
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
+            self.undo()
         else:
             super().keyPressEvent(event)
 
@@ -61,6 +83,9 @@ class TaskListWidget(QListWidget):
         if self._editing_item is not None:
             self._cancel_edit()
         row = self.row(current)
+        task = current.data(Qt.ItemDataRole.UserRole)
+        if isinstance(task, TaskData):
+            self._undo_stack.append((row, task))
         self.takeItem(row)
 
     def _create_task_below_current(self):
@@ -110,12 +135,53 @@ class TaskListWidget(QListWidget):
         )
         item = QListWidgetItem()
         task_widget = TaskItem(task)
+        task_widget.check_toggled.connect(
+            lambda checked, i=item: self._on_task_checked(i, checked)
+        )
         item.setSizeHint(QSize(0, task_widget.size_hint_height()))
         item.setData(Qt.ItemDataRole.UserRole, task)
         if position < 0:
             self.addItem(item)
         else:
             self.insertItem(position, item)
+        self.setItemWidget(item, task_widget)
+
+    def _update_empty_state(self):
+        empty = self.count() == 0
+        self._empty_label.setVisible(empty)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._empty_label.setGeometry(self.rect())
+
+    def _on_task_checked(self, item: QListWidgetItem, checked: bool):
+        if checked:
+            QTimer.singleShot(800, lambda: self._remove_completed(item))
+
+    def _remove_completed(self, item: QListWidgetItem):
+        row = self.row(item)
+        if row >= 0:
+            task = item.data(Qt.ItemDataRole.UserRole)
+            if isinstance(task, TaskData):
+                self._undo_stack.append((row, task))
+            self.takeItem(row)
+
+    def undo(self):
+        if not self._undo_stack:
+            return
+        row, task = self._undo_stack.pop()
+        row = min(row, self.count())
+        self._insert_task(task, row)
+
+    def _insert_task(self, task: TaskData, position: int):
+        item = QListWidgetItem()
+        task_widget = TaskItem(task)
+        task_widget.check_toggled.connect(
+            lambda checked, i=item: self._on_task_checked(i, checked)
+        )
+        item.setSizeHint(QSize(0, task_widget.size_hint_height()))
+        item.setData(Qt.ItemDataRole.UserRole, task)
+        self.insertItem(position, item)
         self.setItemWidget(item, task_widget)
 
     def _on_item_clicked(self, item: QListWidgetItem):

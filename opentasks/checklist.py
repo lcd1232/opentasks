@@ -5,6 +5,7 @@ from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QVBoxLayout,
@@ -29,7 +30,7 @@ class ChecklistItemWidget(QWidget):
     def _setup_ui(self):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(8)
+        layout.setSpacing(12)
 
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(self.item.completed)
@@ -45,16 +46,16 @@ class ChecklistItemWidget(QWidget):
         self.title_input.installEventFilter(self)
         self.title_input.setMinimumHeight(24)
 
-        self.delete_btn = QPushButton("×")
-        self.delete_btn.setObjectName("checklistDeleteBtn")
-        self.delete_btn.setFixedSize(20, 20)
-        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.delete_btn.clicked.connect(self.delete_requested.emit)
-        self.delete_btn.setVisible(False)
+        self.grip_label = QLabel("≡")
+        self.grip_label.setObjectName("checklistGripBtn")
+        self.grip_label.setFixedSize(20, 20)
+        self.grip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.grip_label.setCursor(Qt.CursorShape.ArrowCursor)
+        self.grip_label.setVisible(False)
 
         layout.addWidget(self.checkbox)
         layout.addWidget(self.title_input, 1)
-        layout.addWidget(self.delete_btn)
+        layout.addWidget(self.grip_label)
 
         self.setFixedHeight(32)
         self._update_style()
@@ -86,6 +87,10 @@ class ChecklistItemWidget(QWidget):
         self._update_style()
 
     def eventFilter(self, obj, event: QEvent) -> bool:
+        if obj == self.title_input and event.type() == QEvent.Type.FocusIn:
+            self._on_focus_in()
+        elif obj == self.title_input and event.type() == QEvent.Type.FocusOut:
+            self._on_focus_out()
         if obj == self.title_input and event.type() == QEvent.Type.KeyPress:
             if isinstance(event, QKeyEvent):
                 key = event.key()
@@ -122,12 +127,18 @@ class ChecklistItemWidget(QWidget):
         return super().eventFilter(obj, event)
 
     def enterEvent(self, event):
-        self.delete_btn.setVisible(True)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        self.delete_btn.setVisible(False)
+        if not self.title_input.hasFocus():
+            self.grip_label.setVisible(False)
         super().leaveEvent(event)
+
+    def _on_focus_in(self):
+        self.grip_label.setVisible(True)
+
+    def _on_focus_out(self):
+        self.grip_label.setVisible(False)
 
     def focus_input(self):
         self.title_input.setFocus()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -83,6 +84,13 @@ class MainWindow(QMainWindow):
         self._modal.editor.submitted.connect(self._on_task_created)
         self._modal.editor.cancelled.connect(self._hide_editor)
         self._modal.closed.connect(self._hide_editor)
+
+        QShortcut(QKeySequence.StandardKey.New, self).activated.connect(
+            self._show_editor
+        )
+        QShortcut(QKeySequence.StandardKey.Undo, self).activated.connect(
+            self.task_list.undo
+        )
 
     def _setup_sidebar(self, parent_layout: QHBoxLayout):
         self.sidebar = QWidget()
@@ -254,6 +262,17 @@ class MainWindow(QMainWindow):
             self.header_icon.setPixmap(
                 icon_pixmap(SECTION_ICONS[name], 24, SECTION_COLORS[name])
             )
+        # Update sidebar icons: white for selected, gray for others
+        for i in range(self.nav_list.count()):
+            icon_name = [
+                ICON_TRAY,
+                ICON_STAR,
+                ICON_CALENDAR_BLANK,
+                ICON_CIRCLES_THREE,
+                ICON_ARCHIVE,
+            ][i]
+            color = "#FFFFFF" if i == row else "#D1D1D1"
+            self.nav_list.item(i).setIcon(icon_qicon(icon_name, 16, color))
 
     def _apply_styles(self):
         self.setStyleSheet(STYLES)
